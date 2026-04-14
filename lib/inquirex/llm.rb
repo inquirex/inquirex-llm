@@ -9,6 +9,8 @@ require_relative "llm/schema"
 require_relative "llm/node"
 require_relative "llm/adapter"
 require_relative "llm/null_adapter"
+require_relative "llm/anthropic_adapter"
+require_relative "llm/openai_adapter"
 require_relative "llm/dsl/llm_step_builder"
 require_relative "llm/dsl/flow_builder"
 
