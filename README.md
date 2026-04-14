@@ -1,3 +1,5 @@
+[![Ruby](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml/badge.svg)](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml)   ![Coverage](docs/iamages/coverage.svg)
+
 # inquirex-llm
 
 LLM integration verbs for the [Inquirex](https://github.com/inquirex/inquirex) questionnaire engine.
