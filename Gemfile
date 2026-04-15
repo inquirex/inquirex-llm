@@ -4,7 +4,7 @@ source "https://rubygems.org"
 
 gemspec
 
-gem "inquirex", path: "../inquirex"
+gem "inquirex", "~> 0.3"
 
 gem "irb"
 gem "rake", "~> 13.0"
