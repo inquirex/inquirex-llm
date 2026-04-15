@@ -159,6 +159,111 @@ result = adapter.call(engine.current_step)
 # => { industry: "", employee_count: 0, revenue: 0.0 }
 ```
 
+## Built-in Adapters
+
+| Class | Provider | API | Auth | Key env var |
+|------------------------------------|-----------|---------------------------------------|-----------------------------|-----------------------|
+| `Inquirex::LLM::NullAdapter` | — | none (placeholders) | none | — |
+| `Inquirex::LLM::AnthropicAdapter` | Anthropic | `/v1/messages` | `x-api-key` header | `ANTHROPIC_API_KEY` |
+| `Inquirex::LLM::OpenAIAdapter` | OpenAI | `/v1/chat/completions` (JSON mode) | `Authorization: Bearer …` | `OPENAI_API_KEY` |
+
+Both real adapters use `net/http` (stdlib, no extra dependency), inject the
+declared `schema` into the system prompt as a strict JSON contract, and raise
+`Inquirex::LLM::Errors::AdapterError` on HTTP / parse failures and
+`SchemaViolationError` when the model's output is missing declared fields.
+
+### AnthropicAdapter
+
+```ruby
+adapter = Inquirex::LLM::AnthropicAdapter.new(
+  api_key: ENV["ANTHROPIC_API_KEY"],
+  model:   "claude-sonnet-4-20250514"   # or pass the short symbol in the DSL
+)
+```
+
+Recognized `model :symbol` values in the DSL: `:claude_sonnet`,
+`:claude_haiku`, `:claude_opus` (mapped to the current concrete model ids).
+
+### OpenAIAdapter
+
+```ruby
+adapter = Inquirex::LLM::OpenAIAdapter.new(
+  api_key: ENV["OPENAI_API_KEY"],
+  model:   "gpt-4o-mini"
+)
+```
+
+Uses Chat Completions with `response_format: { type: "json_object" }` so the
+model is constrained to return valid JSON. Recognized DSL symbols: `:gpt_4o`,
+`:gpt_4o_mini`, `:gpt_4_1`, `:gpt_4_1_mini`. For cross-provider portability,
+the adapter also accepts the Claude symbols (`:claude_sonnet` → `gpt-4o` etc.)
+so a flow file that says `model :claude_sonnet` runs unchanged against either
+provider.
+
+## LLM-assisted Pre-fill Pattern
+
+A common use case: ask *one* open-ended question, let the LLM extract answers
+for *many* downstream questions, and only prompt the user for what the LLM
+couldn't determine. This is what the core engine's `Engine#prefill!` is for:
+
+```ruby
+definition = Inquirex.define id: "tax-intake" do
+  start :describe
+
+  ask :describe do
+    type :text
+    question "Describe your 2025 tax situation."
+    transition to: :extracted
+  end
+
+  clarify :extracted do
+    from :describe
+    prompt "Extract: filing_status, dependents, income_types, state_filing."
+    schema filing_status: :string,
+           dependents:    :integer,
+           income_types:  :multi_enum,
+           state_filing:  :string
+    model :claude_sonnet
+    transition to: :filing_status
+  end
+
+  ask :filing_status do
+    type :enum
+    question "Filing status?"
+    options %w[single married_filing_jointly head_of_household]
+    skip_if not_empty(:filing_status)     # ← the whole trick
+    transition to: :dependents
+  end
+
+  ask :dependents do
+    type :integer
+    question "How many dependents?"
+    skip_if not_empty(:dependents)
+    transition to: :income_types
+  end
+  # …and so on for every field in the clarify schema
+end
+
+engine  = Inquirex::Engine.new(definition)
+adapter = Inquirex::LLM::OpenAIAdapter.new  # or AnthropicAdapter
+
+engine.answer("I'm MFJ with two kids in California, W-2 plus some crypto.")
+result = adapter.call(engine.current_step, engine.answers)
+engine.answer(result)         # stored under :extracted
+engine.prefill!(result)       # splats into top-level answers
+
+# Every downstream step whose skip_if rule now evaluates true gets
+# auto-skipped by the engine. engine.current_step_id jumps straight to
+# whichever field the LLM couldn't fill in.
+```
+
+`Engine#prefill!` is non-destructive (won't clobber an answer the user already
+gave), ignores `nil`/empty values so they don't spuriously trigger
+`not_empty`, and auto-advances past any step whose `skip_if` now evaluates
+true. See [examples/09_tax_preparer_llm.rb](../inquirex-tty/examples/09_tax_preparer_llm.rb)
+for a complete runnable flow, or the repo-level `demo_llm_intake.rb` for a
+scripted end-to-end walkthrough.
+
 ## JSON Serialization
 
 LLM steps serialize with `"requires_server": true` so the JS widget knows to round-trip to the server. LLM metadata lives under an `"llm"` key:
