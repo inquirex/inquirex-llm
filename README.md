@@ -6,6 +6,21 @@ LLM integration verbs for the [Inquirex](https://github.com/inquirex/inquirex) q
 
 Extends the core DSL with four server-side verbs -- `clarify`, `describe`, `summarize`, and `detour` -- that bridge free-text answers and structured data via LLM processing. Ships with a pluggable adapter interface and a `NullAdapter` for testing.
 
+`inquirex` is a pure Ruby, declarative, rules-driven questionnaire engine for building conditional intake forms, qualification wizards, and branching surveys.
+
+> [!IMPORTANT]
+>
+> Note that `i`
+>
+> `nquirex` is the base gem of the ecosystem that contains:
+>
+> - [`inquirex`](https://github.com/inquirex/inquirex)
+> - [`inquirex-llm`](https://github.com/inquirex/inquirex-llm)
+> - [`inquirex-tty`](https://github.com/inquirex/inquirex-)
+> - [`inquirex-js`](https://github.com/inquirex/inquirex-js)
+>
+> For a presentation on these gems and what they do please watch the [RubySF presentation](https://www.youtube.com/watch?v=iaoKW7Ap3_M&t=1s) and you can also [view the slides form the presentation](https://reinvent.one/images/talks/pdfs/2026.inquirex.pdf).
+
 ## Status
 
 - Version: `0.1.0`

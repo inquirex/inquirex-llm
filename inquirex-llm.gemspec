@@ -9,10 +9,12 @@ Gem::Specification.new do |spec|
   spec.email = ["kigster@gmail.com"]
 
   spec.summary = "LLM integration verbs for the Inquirex questionnaire engine"
-  spec.description = "Extends the Inquirex DSL with four LLM-powered verbs — clarify, describe, " \
-                     "summarize, and detour — that run server-side to extract structured data, " \
-                     "generate text, and dynamically branch flows. Pluggable adapter interface " \
-                     "keeps the gem LLM-agnostic; a NullAdapter ships for testing."
+  spec.description =
+    "Extends the Inquirex DSL with four LLM-powered verbs — clarify, describe, " \
+    "summarize, and detour — that run server-side to extract structured data, " \
+    "generate text, and dynamically branch flows. Pluggable adapter interface " \
+    "keeps the gem LLM-agnostic; a NullAdapter ships for testing."
+
   spec.homepage = "https://github.com/inquirex/inquirex-llm"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 4.0.0"
@@ -34,5 +36,5 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "inquirex", "~> 0.2"
+  spec.add_dependency "inquirex", "~> 0.4"
 end

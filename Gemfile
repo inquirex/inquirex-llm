@@ -2,16 +2,18 @@
 
 source "https://rubygems.org"
 
+# Specify your gem's dependencies in inquirex.gemspec
 gemspec
 
-gem "inquirex", "~> 0.3"
-
 gem "irb"
-gem "rake", "~> 13.0"
-gem "rspec", "~> 3.0"
-gem "rspec-its", "~> 2.0"
-gem "rubocop", "~> 1.21"
+gem "rake"
+
+gem "rspec"
+gem "rspec-its"
+
+gem "rubocop"
 gem "rubocop-rspec"
-gem "simplecov"
 gem "coverage-badge"
+gem "simplecov"
+
 gem "yard"
