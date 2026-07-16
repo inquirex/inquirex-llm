@@ -4,9 +4,9 @@ require "rspec"
 require "rspec/its"
 
 RSpec.describe Inquirex::LLM::DSL::FlowBuilderExtension do
-  describe "clarify verb" do
+  describe "extract verb" do
     subject(:definition) do
-      Inquirex.define id: "clarify-test" do
+      Inquirex.define id: "extract-test" do
         start :input
 
         ask :input do
@@ -15,7 +15,7 @@ RSpec.describe Inquirex::LLM::DSL::FlowBuilderExtension do
           transition to: :extracted
         end
 
-        clarify :extracted do
+        extract :extracted do
           from :input
           prompt "Extract structured business data."
           schema industry: :string, employee_count: :integer
@@ -34,11 +34,11 @@ RSpec.describe Inquirex::LLM::DSL::FlowBuilderExtension do
     it { is_expected.to be_a(Inquirex::Definition) }
     its(:step_ids) { is_expected.to include(:input, :extracted, :done) }
 
-    describe "the clarify node" do
+    describe "the extract node" do
       subject(:node) { definition.step(:extracted) }
 
       it { is_expected.to be_a(Inquirex::LLM::Node) }
-      its(:verb) { is_expected.to eq :clarify }
+      its(:verb) { is_expected.to eq :extract }
       its(:prompt) { is_expected.to eq "Extract structured business data." }
       its(:from_steps) { is_expected.to eq [:input] }
       its(:model) { is_expected.to eq :claude_sonnet }
@@ -51,104 +51,115 @@ RSpec.describe Inquirex::LLM::DSL::FlowBuilderExtension do
         expect(node.schema.field_names).to eq %i[industry employee_count]
       end
     end
-  end
 
-  describe "describe verb" do
-    subject(:definition) do
-      Inquirex.define id: "describe-test" do
-        start :data
-
-        ask :data do
-          type :string
-          question "What data?"
-          transition to: :described
-        end
-
-        describe :described do # rubocop:disable RSpec/DescribeSymbol,RSpec/EmptyExampleGroup
-          from :data
-          prompt "Describe this data in plain English."
-          transition to: :done
-        end
-
-        say :done do
-          text "Done."
-        end
-      end
-    end
-
-    describe "the describe node" do
-      subject(:node) { definition.step(:described) }
-
-      it { is_expected.to be_a(Inquirex::LLM::Node) }
-      its(:verb) { is_expected.to eq :describe }
-      its(:schema) { is_expected.to be_nil }
-    end
-  end
-
-  describe "summarize verb" do
-    subject(:definition) do
-      Inquirex.define id: "summarize-test" do
-        start :q1
-
-        ask :q1 do
-          type :string
-          question "Question 1?"
-          transition to: :summary
-        end
-
-        summarize :summary do
-          from_all
-          prompt "Summarize the intake."
-          transition to: :done
-        end
-
-        say :done do
-          text "Done."
-        end
-      end
-    end
-
-    describe "the summarize node" do
-      subject(:node) { definition.step(:summary) }
-
-      it { is_expected.to be_a(Inquirex::LLM::Node) }
-      its(:verb) { is_expected.to eq :summarize }
-      its(:from_all) { is_expected.to be true }
-      its(:from_steps) { is_expected.to be_empty }
-    end
-  end
-
-  describe "detour verb" do
-    subject(:definition) do
-      Inquirex.define id: "detour-test" do
+    it "treats clarify as an alias that still stores verb :extract" do
+      via_alias = Inquirex.define id: "clarify-alias-test" do
         start :input
-
-        ask :input do
-          type :text
-          question "Describe your situation."
-          transition to: :followup
-        end
-
-        detour :followup do
-          from :input
-          prompt "Generate follow-up questions."
-          schema questions: :array, answers: :hash
-          transition to: :done
-        end
-
-        say :done do
-          text "Done."
-        end
+        ask(:input) { type :text; question "x"; transition to: :out }
+        clarify(:out) { from :input; prompt "p"; schema name: :string; transition to: :done }
+        say(:done) { text "Done." }
       end
-    end
 
-    describe "the detour node" do
-      subject(:node) { definition.step(:followup) }
-
-      it { is_expected.to be_a(Inquirex::LLM::Node) }
-      its(:verb) { is_expected.to eq :detour }
+      expect(via_alias.step(:out).verb).to eq :extract
     end
   end
+
+  # describe "describe verb" do
+  #   subject(:definition) do
+  #     Inquirex.define id: "describe-test" do
+  #       start :data
+  #
+  #       ask :data do
+  #         type :string
+  #         question "What data?"
+  #         transition to: :described
+  #       end
+  #
+  #       describe :described do
+  #         from :data
+  #         prompt "Describe this data in plain English."
+  #         transition to: :done
+  #       end
+  #
+  #       say :done do
+  #         text "Done."
+  #       end
+  #     end
+  #   end
+  #
+  #   describe "the describe node" do
+  #     subject(:node) { definition.step(:described) }
+  #
+  #     it { is_expected.to be_a(Inquirex::LLM::Node) }
+  #     its(:verb) { is_expected.to eq :describe }
+  #     its(:schema) { is_expected.to be_nil }
+  #   end
+  # end
+
+  # describe "summarize verb" do
+  #   subject(:definition) do
+  #     Inquirex.define id: "summarize-test" do
+  #       start :q1
+  #
+  #       ask :q1 do
+  #         type :string
+  #         question "Question 1?"
+  #         transition to: :summary
+  #       end
+  #
+  #       summarize :summary do
+  #         from_all
+  #         prompt "Summarize the intake."
+  #         transition to: :done
+  #       end
+  #
+  #       say :done do
+  #         text "Done."
+  #       end
+  #     end
+  #   end
+  #
+  #   describe "the summarize node" do
+  #     subject(:node) { definition.step(:summary) }
+  #
+  #     it { is_expected.to be_a(Inquirex::LLM::Node) }
+  #     its(:verb) { is_expected.to eq :summarize }
+  #     its(:from_all) { is_expected.to be true }
+  #     its(:from_steps) { is_expected.to be_empty }
+  #   end
+  # end
+
+  # describe "detour verb" do
+  #   subject(:definition) do
+  #     Inquirex.define id: "detour-test" do
+  #       start :input
+  #
+  #       ask :input do
+  #         type :text
+  #         question "Describe your situation."
+  #         transition to: :followup
+  #       end
+  #
+  #       detour :followup do
+  #         from :input
+  #         prompt "Generate follow-up questions."
+  #         schema questions: :array, answers: :hash
+  #         transition to: :done
+  #       end
+  #
+  #       say :done do
+  #         text "Done."
+  #       end
+  #     end
+  #   end
+  #
+  #   describe "the detour node" do
+  #     subject(:node) { definition.step(:followup) }
+  #
+  #     it { is_expected.to be_a(Inquirex::LLM::Node) }
+  #     its(:verb) { is_expected.to eq :detour }
+  #   end
+  # end
 
   describe "core verbs still work" do
     subject(:definition) do
@@ -196,29 +207,29 @@ RSpec.describe Inquirex::LLM::DSL::FlowBuilderExtension do
   end
 
   describe "validation errors" do
-    it "raises when clarify has no prompt" do
+    it "raises when extract has no prompt" do
       expect do
         Inquirex.define do
           start :x
-          clarify(:x) { schema name: :string; from :y }
+          extract(:x) { schema name: :string; from :y }
         end
       end.to raise_error(Inquirex::LLM::Errors::DefinitionError, /requires a prompt/)
     end
 
-    it "raises when clarify has no schema" do
+    it "raises when extract has no schema" do
       expect do
         Inquirex.define do
           start :x
-          clarify(:x) { prompt "test"; from :y }
+          extract(:x) { prompt "test"; from :y }
         end
       end.to raise_error(Inquirex::LLM::Errors::DefinitionError, /requires a schema/)
     end
 
-    it "raises when clarify has no from source" do
+    it "raises when extract has no from source" do
       expect do
         Inquirex.define do
           start :x
-          clarify(:x) { prompt "test"; schema name: :string }
+          extract(:x) { prompt "test"; schema name: :string }
         end
       end.to raise_error(Inquirex::LLM::Errors::DefinitionError, /requires.*from/)
     end

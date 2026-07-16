@@ -28,7 +28,7 @@ module Inquirex
       #
       # @param node [LLM::Node] the LLM step to process
       # @param answers [Hash] current collected answers
-      # @return [Hash, String] structured output (for clarify/detour) or text (for describe/summarize)
+      # @return [Hash, String] structured output (for extract) or text (when no schema)
       # @raise [Errors::AdapterError] if the LLM call fails
       # @raise [Errors::SchemaViolationError] if output doesn't match schema
       def call(node, answers)

@@ -10,10 +10,9 @@ Gem::Specification.new do |spec|
 
   spec.summary = "LLM integration verbs for the Inquirex questionnaire engine"
   spec.description =
-    "Extends the Inquirex DSL with four LLM-powered verbs — clarify, describe, " \
-    "summarize, and detour — that run server-side to extract structured data, " \
-    "generate text, and dynamically branch flows. Pluggable adapter interface " \
-    "keeps the gem LLM-agnostic; a NullAdapter ships for testing."
+    "Extends the Inquirex DSL with an LLM-powered `extract` verb (alias: `clarify`) " \
+    "that runs server-side to turn free-text answers into structured data. " \
+    "Pluggable adapter interface keeps the gem LLM-agnostic; a NullAdapter ships for testing."
 
   spec.homepage = "https://github.com/inquirex/inquirex-llm"
   spec.license = "MIT"

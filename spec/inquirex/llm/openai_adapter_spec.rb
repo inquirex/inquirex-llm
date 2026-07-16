@@ -8,10 +8,10 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
   let(:api_key) { "test-openai-key" }
   let(:schema)  { Inquirex::LLM::Schema.new(filing_status: :string, dependents: :integer) }
 
-  let(:clarify_node) do
+  let(:extract_node) do
     Inquirex::LLM::Node.new(
       id:          :extracted,
-      verb:        :clarify,
+      verb:        :extract,
       prompt:      "Extract tax intake fields from the client's description.",
       schema:      schema,
       from_steps:  [:tell_me],
@@ -21,11 +21,21 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
     )
   end
 
-  let(:summarize_node) do
+  # let(:summarize_node) do
+  #   Inquirex::LLM::Node.new(
+  #     id:       :summary,
+  #     verb:     :summarize,
+  #     prompt:   "Summarize intake.",
+  #     from_all: true
+  #   )
+  # end
+
+  let(:from_all_node) do
     Inquirex::LLM::Node.new(
-      id:       :summary,
-      verb:     :summarize,
-      prompt:   "Summarize intake.",
+      id:       :extract_all,
+      verb:     :extract,
+      prompt:   "Extract from everything.",
+      schema:   schema,
       from_all: true
     )
   end
@@ -56,16 +66,16 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
     subject(:adapter) { described_class.new(api_key: api_key) }
 
     it "maps Claude symbols to GPT equivalents for cross-provider flow files" do
-      expect(adapter.send(:resolve_model, clarify_node)).to eq("gpt-4o")
+      expect(adapter.send(:resolve_model, extract_node)).to eq("gpt-4o")
     end
 
     it "maps gpt_4o_mini symbol to the concrete id" do
-      node = Inquirex::LLM::Node.new(id: :x, verb: :clarify, prompt: "p", schema: schema, from_steps: [:a], model: :gpt_4o_mini)
+      node = Inquirex::LLM::Node.new(id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:a], model: :gpt_4o_mini)
       expect(adapter.send(:resolve_model, node)).to eq("gpt-4o-mini")
     end
 
     it "falls back to the default when the node has no model" do
-      node = Inquirex::LLM::Node.new(id: :x, verb: :clarify, prompt: "p", schema: schema, from_steps: [:a])
+      node = Inquirex::LLM::Node.new(id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:a])
       expect(adapter.send(:resolve_model, node)).to eq(described_class::DEFAULT_MODEL)
     end
   end
@@ -73,32 +83,32 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
   describe "#build_system_prompt" do
     subject(:adapter) { described_class.new(api_key: api_key) }
 
-    it "includes the schema JSON for clarify" do
-      text = adapter.send(:build_system_prompt, clarify_node)
+    it "includes the schema JSON for extract" do
+      text = adapter.send(:build_system_prompt, extract_node)
       expect(text).to include('"filing_status": "string"')
       expect(text).to include("JSON object")
     end
 
-    it "does not include a schema block for summarize" do
-      text = adapter.send(:build_system_prompt, summarize_node)
-      expect(text).not_to include("MUST match this schema")
-      expect(text).to include("JSON object")
-    end
+    # it "does not include a schema block for summarize" do
+    #   text = adapter.send(:build_system_prompt, summarize_node)
+    #   expect(text).not_to include("MUST match this schema")
+    #   expect(text).to include("JSON object")
+    # end
   end
 
   describe "#build_user_prompt" do
     subject(:adapter) { described_class.new(api_key: api_key) }
 
     it "includes task, source, schema fields, and the return instruction" do
-      text = adapter.send(:build_user_prompt, clarify_node, { tell_me: "hi" }, answers)
+      text = adapter.send(:build_user_prompt, extract_node, { tell_me: "hi" }, answers)
       expect(text).to include("Task: Extract tax intake fields")
       expect(text).to include("tell_me: \"hi\"")
       expect(text).to include("filing_status (string)")
       expect(text).to include("Return ONLY the JSON object.")
     end
 
-    it "includes all answers for summarize with from_all" do
-      text = adapter.send(:build_user_prompt, summarize_node, {}, answers)
+    it "includes all answers when from_all is set" do
+      text = adapter.send(:build_user_prompt, from_all_node, {}, answers)
       expect(text).to include("All collected answers:")
       expect(text).to include("tell_me:")
     end
@@ -162,7 +172,7 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
         ok('{"filing_status":"single","dependents":2}')
       end
 
-      result = adapter.call(clarify_node, answers)
+      result = adapter.call(extract_node, answers)
 
       expect(result).to eq(filing_status: "single", dependents: 2)
       expect(captured["Authorization"]).to eq("Bearer #{api_key}")
@@ -174,13 +184,13 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
 
     it "raises AdapterError on non-2xx" do
       allow(http).to receive(:request).and_return(err(429, '{"error":"rate limit"}'))
-      expect { adapter.call(clarify_node, answers) }
+      expect { adapter.call(extract_node, answers) }
         .to raise_error(Inquirex::LLM::Errors::AdapterError, /429/)
     end
 
     it "raises SchemaViolationError when a schema field is missing" do
       allow(http).to receive(:request).and_return(ok('{"filing_status":"single"}'))
-      expect { adapter.call(clarify_node, answers) }
+      expect { adapter.call(extract_node, answers) }
         .to raise_error(Inquirex::LLM::Errors::SchemaViolationError, /dependents/)
     end
   end

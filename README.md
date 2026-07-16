@@ -1,42 +1,31 @@
-[![Ruby](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml/badge.svg)](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml)  ![Coverage](docs/badges/coverage_badge.svg)
+[![Ruby](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml/badge.svg)](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml) ![Coverage](docs/badges/coverage_badge.svg)
 
 # inquirex-llm
 
 LLM integration verbs for the [Inquirex](https://github.com/inquirex/inquirex) questionnaire engine.
 
-Extends the core DSL with four server-side verbs -- `clarify`, `describe`, `summarize`, and `detour` -- that bridge free-text answers and structured data via LLM processing. Ships with a pluggable adapter interface and a `NullAdapter` for testing.
+Extends the core DSL with a server-side `extract` verb (alias: `clarify`) that turns free-text answers into structured data via LLM processing. Ships with a pluggable adapter interface and a `NullAdapter` for testing. (`describe`, `summarize`, and `detour` are temporarily parked.)
 
 `inquirex` is a pure Ruby, declarative, rules-driven questionnaire engine for building conditional intake forms, qualification wizards, and branching surveys.
 
 > [!IMPORTANT]
 >
-> Note that `i`
->
-> `nquirex` is the base gem of the ecosystem that contains:
+> Note that `inquirex-llm` is part of an entire ecosystem that contains:
 >
 > - [`inquirex`](https://github.com/inquirex/inquirex)
 > - [`inquirex-llm`](https://github.com/inquirex/inquirex-llm)
 > - [`inquirex-tty`](https://github.com/inquirex/inquirex-)
-> - [`inquirex-js`](https://github.com/inquirex/inquirex-js)
+> - [`inquirex-js`](https://github.com/inquirex/inquirex-js) (`npmjs` module [`@kigster/inquirex-js`](https://www.npmjs.com/package/@kigster/inquirex-js))
 >
-> For a presentation on these gems and what they do please watch the [RubySF presentation](https://www.youtube.com/watch?v=iaoKW7Ap3_M&t=1s) and you can also [view the slides form the presentation](https://reinvent.one/images/talks/pdfs/2026.inquirex.pdf).
-
-## Status
-
-- Version: `0.1.0`
-- Ruby: `>= 4.0.0`
-- Test suite: `111 examples, 0 failures`
-- Depends on: `inquirex` (core gem)
-
-## Installation
-
-```ruby
-gem "inquirex-llm"
-```
+> For a presentation about these gems and what they do please watch the [RubySF presentation](https://www.youtube.com/watch?v=iaoKW7Ap3_M&t=1s) and you can also [view the slides form the presentation](https://reinvent.one/images/talks/pdfs/2026.inquirex.pdf).
+>
+> Finally, the SaaS application [qualified.at](https://qualified.at) allows users to leverage the ecosystem by creating their own custom lead intake flows and integrating them on their own sites.
 
 ## Usage
 
-`require "inquirex-llm"` injects the LLM verbs into the core `Inquirex.define` DSL. No separate entry point needed.
+`require "inquirex-llm"` injects the LLM verbs into the core `Inquirex.define` DSL.
+
+No separate entry point needed.
 
 ```ruby
 require "inquirex"
@@ -51,7 +40,7 @@ definition = Inquirex.define id: "tax-intake-2026", version: "1.0.0" do
     transition to: :extracted
   end
 
-  clarify :extracted do
+  extract :extracted do
     from :description
     prompt "Extract structured business information from the description."
     schema industry:          :string,
@@ -60,15 +49,9 @@ definition = Inquirex.define id: "tax-intake-2026", version: "1.0.0" do
            estimated_revenue: :currency
     model :claude_sonnet
     temperature 0.2
-    transition to: :summary
-  end
-
-  summarize :summary do
-    from_all
-    prompt "Summarize this client's tax situation and flag complexity concerns."
     transition to: :done
   end
-
+  
   say :done do
     text "Thank you! We'll be in touch."
   end
@@ -77,14 +60,14 @@ end
 
 All core verbs (`ask`, `say`, `header`, `btw`, `warning`, `confirm`) and widget hints work alongside LLM verbs in the same `Inquirex.define` block.
 
-## LLM Verbs
+## Currently Supported LLM Verbs
 
-### `clarify`
+### `extract` (alias: `clarify`)
 
-Extract structured data from a free-text answer. Requires `from`, `prompt`, and `schema`.
+Extract structured data from a free-text answer. Requires `from` (or `from_all`), `prompt`, and `schema`. The stored/serialized verb is always `"extract"`; `clarify` is a DSL-only alias.
 
 ```ruby
-clarify :business_extracted do
+extract :business_extracted do
   from :business_description
   prompt "Extract structured business information."
   schema industry: :string, employee_count: :integer, revenue: :currency
@@ -95,57 +78,20 @@ clarify :business_extracted do
 end
 ```
 
-### `describe`
-
-Generate natural-language text from structured data. Requires `from` and `prompt`. No schema needed.
-
-```ruby
-describe :business_narrative do
-  from :business_extracted
-  prompt "Write a brief narrative of this business for the intake report."
-  transition to: :next_step
-end
-```
-
-### `summarize`
-
-Produce a summary of all or selected answers. Use `from_all` to pass everything, or `from` to select specific steps.
-
-```ruby
-summarize :intake_summary do
-  from_all
-  prompt "Summarize this client's tax situation."
-  transition to: :review
-end
-```
-
-### `detour`
-
-Dynamically generate follow-up questions based on an answer. The server adapter handles presenting the generated questions and collecting responses. Requires `from`, `prompt`, and `schema`.
-
-```ruby
-detour :followup do
-  from :description
-  prompt "Generate 2-3 follow-up questions to clarify the tax situation."
-  schema questions: :array, answers: :hash
-  transition to: :next_step
-end
-```
-
 ## DSL Methods (inside LLM verb blocks)
 
-| Method | Purpose | Required |
-|--------|---------|----------|
-| `prompt "..."` | LLM prompt template | Always |
-| `schema key: :type, ...` | Expected output structure | `clarify`, `detour` |
-| `from :step_id` | Source step(s) whose answers feed the LLM | `clarify`, `describe`, `detour` |
-| `from_all` | Pass all collected answers to the LLM | Alternative to `from` |
-| `model :claude_sonnet` | Optional model hint for the adapter | No |
-| `temperature 0.3` | Optional sampling temperature | No |
-| `max_tokens 1024` | Optional max output tokens | No |
-| `fallback { \|answers\| ... }` | Server-side fallback (stripped from JSON) | No |
-| `transition to: :step` | Conditional transition (same as core) | No |
-| `skip_if rule` | Skip step when condition is true | No |
+| Method                         | Purpose                                   | Required                      |
+| ------------------------------ | ----------------------------------------- | ----------------------------- |
+| `prompt "..."`                 | LLM prompt template                       | Always                        |
+| `schema key: :type, ...`       | Expected output structure                 | `extract`                     |
+| `from :step_id`                | Source step(s) whose answers feed the LLM | `extract` (or use `from_all`) |
+| `from_all`                     | Pass all collected answers to the LLM     | Alternative to `from`         |
+| `model :claude_sonnet`         | Optional model hint for the adapter       | No                            |
+| `temperature 0.3`              | Optional sampling temperature             | No                            |
+| `max_tokens 1024`              | Optional max output tokens                | No                            |
+| `fallback { \|answers\| ... }` | Server-side fallback (stripped from JSON) | No                            |
+| `transition to: :step`         | Conditional transition (same as core)     | No                            |
+| `skip_if rule`                 | Skip step when condition is true          | No                            |
 
 ## Engine Integration
 
@@ -176,16 +122,14 @@ result = adapter.call(engine.current_step)
 
 ## Built-in Adapters
 
-| Class | Provider | API | Auth | Key env var |
-|------------------------------------|-----------|---------------------------------------|-----------------------------|-----------------------|
-| `Inquirex::LLM::NullAdapter` | — | none (placeholders) | none | — |
-| `Inquirex::LLM::AnthropicAdapter` | Anthropic | `/v1/messages` | `x-api-key` header | `ANTHROPIC_API_KEY` |
-| `Inquirex::LLM::OpenAIAdapter` | OpenAI | `/v1/chat/completions` (JSON mode) | `Authorization: Bearer …` | `OPENAI_API_KEY` |
+| Class                                   | Provider  | API                                | Auth                      | Key env var         |
+| --------------------------------------- | --------- | ---------------------------------- | ------------------------- | ------------------- |
+| `Inquirex::LLM::NullAdapter`            | —         | none (placeholders)                | none                      | —                   |
+| `Inquirex::LLM::AnthropicAdapter`       | Anthropic | `/v1/messages`                     | `x-api-key` header        | `ANTHROPIC_API_KEY` |
+| `Inquirex::LLM::OpenAIAdapter`          | OpenAI    | `/v1/chat/completions` (JSON mode) | `Authorization: Bearer …` | `OPENAI_API_KEY`    |
+| `Inquirex::LLM::LittleLLMAdapter` (TBD) | Any       | OpenAI Compatible API              | OpenAI Compatible Auth    | Provider Specific   |
 
-Both real adapters use `net/http` (stdlib, no extra dependency), inject the
-declared `schema` into the system prompt as a strict JSON contract, and raise
-`Inquirex::LLM::Errors::AdapterError` on HTTP / parse failures and
-`SchemaViolationError` when the model's output is missing declared fields.
+The Anthropic and OpenAI adapters use `net/http` (stdlib, no extra dependency), inject the declared `schema` into the system prompt as a strict JSON contract, and raise `Inquirex::LLM::Errors::AdapterError` on HTTP / parse failures and `SchemaViolationError` when the model's output is missing declared fields.
 
 ### AnthropicAdapter
 
@@ -196,8 +140,7 @@ adapter = Inquirex::LLM::AnthropicAdapter.new(
 )
 ```
 
-Recognized `model :symbol` values in the DSL: `:claude_sonnet`,
-`:claude_haiku`, `:claude_opus` (mapped to the current concrete model ids).
+Recognized `model :symbol` values in the DSL: `:claude_sonnet`, `:claude_haiku`, `:claude_opus` (mapped to the current concrete model ids).
 
 ### OpenAIAdapter
 
@@ -208,18 +151,11 @@ adapter = Inquirex::LLM::OpenAIAdapter.new(
 )
 ```
 
-Uses Chat Completions with `response_format: { type: "json_object" }` so the
-model is constrained to return valid JSON. Recognized DSL symbols: `:gpt_4o`,
-`:gpt_4o_mini`, `:gpt_4_1`, `:gpt_4_1_mini`. For cross-provider portability,
-the adapter also accepts the Claude symbols (`:claude_sonnet` → `gpt-4o` etc.)
-so a flow file that says `model :claude_sonnet` runs unchanged against either
-provider.
+Uses Chat Completions with `response_format: { type: "json_object" }` so the model is constrained to return valid JSON. Recognized DSL symbols: `:gpt_4o`, `:gpt_4o_mini`, `:gpt_4_1`, `:gpt_4_1_mini`. For cross-provider portability, the adapter also accepts the Claude symbols (`:claude_sonnet` → `gpt-4o` etc.) so a flow file that says `model :claude_sonnet` runs unchanged against either provider.
 
 ## LLM-assisted Pre-fill Pattern
 
-A common use case: ask *one* open-ended question, let the LLM extract answers
-for *many* downstream questions, and only prompt the user for what the LLM
-couldn't determine. This is what the core engine's `Engine#prefill!` is for:
+A common use case: ask *one* open-ended question, let the LLM extract answers for *many* downstream questions, and only prompt the user for what the LLM couldn't determine. This is what the core engine's `Engine#prefill!` is for:
 
 ```ruby
 definition = Inquirex.define id: "tax-intake" do
@@ -231,7 +167,7 @@ definition = Inquirex.define id: "tax-intake" do
     transition to: :extracted
   end
 
-  clarify :extracted do
+  extract :extracted do
     from :describe
     prompt "Extract: filing_status, dependents, income_types, state_filing."
     schema filing_status: :string,
@@ -256,7 +192,7 @@ definition = Inquirex.define id: "tax-intake" do
     skip_if not_empty(:dependents)
     transition to: :income_types
   end
-  # …and so on for every field in the clarify schema
+  # …and so on for every field in the extract schema
 end
 
 engine  = Inquirex::Engine.new(definition)
@@ -272,12 +208,7 @@ engine.prefill!(result)       # splats into top-level answers
 # whichever field the LLM couldn't fill in.
 ```
 
-`Engine#prefill!` is non-destructive (won't clobber an answer the user already
-gave), ignores `nil`/empty values so they don't spuriously trigger
-`not_empty`, and auto-advances past any step whose `skip_if` now evaluates
-true. See [examples/09_tax_preparer_llm.rb](../inquirex-tty/examples/09_tax_preparer_llm.rb)
-for a complete runnable flow, or the repo-level `demo_llm_intake.rb` for a
-scripted end-to-end walkthrough.
+`Engine#prefill!` is non-destructive (won't clobber an answer the user already gave), ignores `nil`/empty values so they don't spuriously trigger `not_empty`, and auto-advances past any step whose `skip_if` now evaluates true. See [examples/09_tax_preparer_llm.rb](../inquirex-tty/examples/09_tax_preparer_llm.rb) for a complete runnable flow, or the repo-level `demo_llm_intake.rb` for a scripted end-to-end walkthrough.
 
 ## JSON Serialization
 
@@ -285,9 +216,9 @@ LLM steps serialize with `"requires_server": true` so the JS widget knows to rou
 
 ```json
 {
-  "verb": "clarify",
+  "verb": "extract",
   "requires_server": true,
-  "transitions": [{ "to": "summary", "requires_server": true }],
+  "transitions": [{ "to": "next_step", "requires_server": true }],
   "llm": {
     "prompt": "Extract structured business information.",
     "schema": {
@@ -328,6 +259,47 @@ end
 
 The base class provides `#source_answers` (gathers relevant answers) and `#validate_output!` (checks schema conformance).
 
+## Future Possible LLM Verbs
+
+### `describe`
+
+Generate natural-language text from structured data. Requires `from` and `prompt`. No schema needed.
+
+```ruby
+describe :business_narrative do
+  from :business_extracted
+  prompt "Write a brief narrative of this business for the intake report."
+  transition to: :next_step
+end
+```
+
+### `summarize`
+
+Produce a summary of all or selected answers. Use `from_all` to pass everything, or `from` to select specific steps.
+
+```ruby
+summarize :intake_summary do
+  from_all
+  prompt "Summarize this client's tax situation."
+  transition to: :review
+end
+```
+
+### `detour` (parked)
+
+Dynamically generate follow-up questions based on an answer. The server adapter handles presenting the generated questions and collecting responses. Requires `from`, `prompt`, and `schema`.
+
+```ruby
+detour :followup do
+  from :description
+  prompt "Generate 2-3 follow-up questions to clarify the tax situation."
+  schema questions: :array, answers: :hash
+  transition to: :next_step
+end
+```
+
+## 
+
 ## Development
 
 ```bash
@@ -338,4 +310,8 @@ bundle exec rubocop
 
 ## License
 
-MIT. See [LICENSE.txt](LICENSE.txt).
+© 2026 Konstantin Gredeskoul.
+
+Distributed under the MIT License.
+
+See [LICENSE.txt](LICENSE.txt) for details.

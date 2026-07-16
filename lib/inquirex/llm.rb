@@ -17,11 +17,11 @@ require_relative "llm/dsl/flow_builder"
 module Inquirex
   # LLM integration layer for Inquirex flows.
   #
-  # Extends the core DSL with four LLM-powered verbs that run server-side:
-  #   - clarify   — extract structured data from free-text answers
-  #   - describe  — generate natural-language text from structured data
-  #   - summarize — produce a summary of all or selected answers
-  #   - detour    — dynamically generate follow-up questions
+  # Extends the core DSL with LLM-powered verbs that run server-side:
+  #   - extract   — extract structured data from free-text answers (`clarify` is an alias)
+  #   # - describe  — generate natural-language text from structured data
+  #   # - summarize — produce a summary of all or selected answers
+  #   # - detour    — dynamically generate follow-up questions
   #
   # LLM calls never happen on the frontend. Steps are marked `requires_server: true`
   # in the JSON wire format so the JS widget knows to round-trip to the server.
@@ -33,7 +33,7 @@ module Inquirex
   #   Inquirex.define id: "intake" do
   #     start :description
   #     ask(:description) { type :text; question "Describe your business."; transition to: :extracted }
-  #     clarify(:extracted) { from :description; prompt "Extract info."; schema name: :string; transition to: :done }
+  #     extract(:extracted) { from :description; prompt "Extract info."; schema name: :string; transition to: :done }
   #     say(:done) { text "Done!" }
   #   end
   module LLM
@@ -41,5 +41,5 @@ module Inquirex
 end
 
 # Inject LLM verbs into the core FlowBuilder so that Inquirex.define
-# gains clarify/describe/summarize/detour when this gem is loaded.
+# gains extract (and clarify as an alias) when this gem is loaded.
 Inquirex::DSL::FlowBuilder.include(Inquirex::LLM::DSL::FlowBuilderExtension)

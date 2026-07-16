@@ -9,6 +9,8 @@ gem "irb"
 gem "rake"
 
 gem "rspec"
+gem "simplecov"
+gem "coverage-badge"
 gem "rspec-its"
 
 gem "rubocop"
