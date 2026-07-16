@@ -1,4 +1,4 @@
-[![Ruby](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml/badge.svg)](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml) ![Coverage](docs/badges/coverage_badge.svg)
+[![Gem Version](https://badge.fury.io/rb/inquirex-llm.svg)](https://badge.fury.io/rb/inquirex-llm) [![Ruby](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml/badge.svg)](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml) ![Coverage](docs/badges/coverage_badge.svg)
 
 # inquirex-llm
 
