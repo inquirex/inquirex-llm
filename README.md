@@ -60,7 +60,7 @@ end
 
 All core verbs (`ask`, `say`, `header`, `btw`, `warning`, `confirm`) and widget hints work alongside LLM verbs in the same `Inquirex.define` block.
 
-## LLM Verbs
+## Currently Supported LLM Verbs
 
 ### `extract` (alias: `clarify`)
 
@@ -78,60 +78,20 @@ extract :business_extracted do
 end
 ```
 
-### `describe` (parked)
-
-<!-- Generate natural-language text from structured data. Requires `from` and `prompt`. No schema needed.
-
-```ruby
-describe :business_narrative do
-  from :business_extracted
-  prompt "Write a brief narrative of this business for the intake report."
-  transition to: :next_step
-end
-```
--->
-
-### `summarize` (parked)
-
-<!-- Produce a summary of all or selected answers. Use `from_all` to pass everything, or `from` to select specific steps.
-
-```ruby
-summarize :intake_summary do
-  from_all
-  prompt "Summarize this client's tax situation."
-  transition to: :review
-end
-```
--->
-
-### `detour` (parked)
-
-<!-- Dynamically generate follow-up questions based on an answer. The server adapter handles presenting the generated questions and collecting responses. Requires `from`, `prompt`, and `schema`.
-
-```ruby
-detour :followup do
-  from :description
-  prompt "Generate 2-3 follow-up questions to clarify the tax situation."
-  schema questions: :array, answers: :hash
-  transition to: :next_step
-end
-```
--->
-
 ## DSL Methods (inside LLM verb blocks)
 
-| Method | Purpose | Required |
-|--------|---------|----------|
-| `prompt "..."` | LLM prompt template | Always |
-| `schema key: :type, ...` | Expected output structure | `extract` |
-| `from :step_id` | Source step(s) whose answers feed the LLM | `extract` (or use `from_all`) |
-| `from_all` | Pass all collected answers to the LLM | Alternative to `from` |
-| `model :claude_sonnet` | Optional model hint for the adapter | No |
-| `temperature 0.3` | Optional sampling temperature | No |
-| `max_tokens 1024` | Optional max output tokens | No |
-| `fallback { \|answers\| ... }` | Server-side fallback (stripped from JSON) | No |
-| `transition to: :step` | Conditional transition (same as core) | No |
-| `skip_if rule` | Skip step when condition is true | No |
+| Method                         | Purpose                                   | Required                      |
+| ------------------------------ | ----------------------------------------- | ----------------------------- |
+| `prompt "..."`                 | LLM prompt template                       | Always                        |
+| `schema key: :type, ...`       | Expected output structure                 | `extract`                     |
+| `from :step_id`                | Source step(s) whose answers feed the LLM | `extract` (or use `from_all`) |
+| `from_all`                     | Pass all collected answers to the LLM     | Alternative to `from`         |
+| `model :claude_sonnet`         | Optional model hint for the adapter       | No                            |
+| `temperature 0.3`              | Optional sampling temperature             | No                            |
+| `max_tokens 1024`              | Optional max output tokens                | No                            |
+| `fallback { \|answers\| ... }` | Server-side fallback (stripped from JSON) | No                            |
+| `transition to: :step`         | Conditional transition (same as core)     | No                            |
+| `skip_if rule`                 | Skip step when condition is true          | No                            |
 
 ## Engine Integration
 
@@ -162,12 +122,12 @@ result = adapter.call(engine.current_step)
 
 ## Built-in Adapters
 
-| Class | Provider | API | Auth | Key env var |
-|------------------------------------|-----------|---------------------------------------|-----------------------------|-----------------------|
-| `Inquirex::LLM::NullAdapter` | — | none (placeholders) | none | — |
-| `Inquirex::LLM::AnthropicAdapter` | Anthropic | `/v1/messages` | `x-api-key` header | `ANTHROPIC_API_KEY` |
-| `Inquirex::LLM::OpenAIAdapter` | OpenAI | `/v1/chat/completions` (JSON mode) | `Authorization: Bearer …` | `OPENAI_API_KEY` |
-| `Inquirex::LLM::LittleLLMAdapter` (TBD) | Any | OpenAI Compatible API | OpenAI Compatible Auth | Provider Specific |
+| Class                                   | Provider  | API                                | Auth                      | Key env var         |
+| --------------------------------------- | --------- | ---------------------------------- | ------------------------- | ------------------- |
+| `Inquirex::LLM::NullAdapter`            | —         | none (placeholders)                | none                      | —                   |
+| `Inquirex::LLM::AnthropicAdapter`       | Anthropic | `/v1/messages`                     | `x-api-key` header        | `ANTHROPIC_API_KEY` |
+| `Inquirex::LLM::OpenAIAdapter`          | OpenAI    | `/v1/chat/completions` (JSON mode) | `Authorization: Bearer …` | `OPENAI_API_KEY`    |
+| `Inquirex::LLM::LittleLLMAdapter` (TBD) | Any       | OpenAI Compatible API              | OpenAI Compatible Auth    | Provider Specific   |
 
 The Anthropic and OpenAI adapters use `net/http` (stdlib, no extra dependency), inject the declared `schema` into the system prompt as a strict JSON contract, and raise `Inquirex::LLM::Errors::AdapterError` on HTTP / parse failures and `SchemaViolationError` when the model's output is missing declared fields.
 
@@ -299,6 +259,47 @@ end
 
 The base class provides `#source_answers` (gathers relevant answers) and `#validate_output!` (checks schema conformance).
 
+## Future Possible LLM Verbs
+
+### `describe`
+
+Generate natural-language text from structured data. Requires `from` and `prompt`. No schema needed.
+
+```ruby
+describe :business_narrative do
+  from :business_extracted
+  prompt "Write a brief narrative of this business for the intake report."
+  transition to: :next_step
+end
+```
+
+### `summarize`
+
+Produce a summary of all or selected answers. Use `from_all` to pass everything, or `from` to select specific steps.
+
+```ruby
+summarize :intake_summary do
+  from_all
+  prompt "Summarize this client's tax situation."
+  transition to: :review
+end
+```
+
+### `detour` (parked)
+
+Dynamically generate follow-up questions based on an answer. The server adapter handles presenting the generated questions and collecting responses. Requires `from`, `prompt`, and `schema`.
+
+```ruby
+detour :followup do
+  from :description
+  prompt "Generate 2-3 follow-up questions to clarify the tax situation."
+  schema questions: :array, answers: :hash
+  transition to: :next_step
+end
+```
+
+## 
+
 ## Development
 
 ```bash
@@ -309,4 +310,8 @@ bundle exec rubocop
 
 ## License
 
-MIT. See [LICENSE.txt](LICENSE.txt).
+© 2026 Konstantin Gredeskoul.
+
+Distributed under the MIT License.
+
+See [LICENSE.txt](LICENSE.txt) for details.
