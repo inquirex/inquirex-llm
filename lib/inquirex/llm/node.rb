@@ -7,16 +7,16 @@ module Inquirex
     # step references, and model configuration.
     #
     # LLM verbs:
-    #   :clarify   — extract structured data from a free-text answer
-    #   :describe  — generate natural-language text from structured data
-    #   :summarize — produce a summary of all or selected answers
-    #   :detour    — dynamically generate follow-up questions based on an answer
+    #   :extract   — extract structured data from a free-text answer
+    #   # :describe  — generate natural-language text from structured data
+    #   # :summarize — produce a summary of all or selected answers
+    #   # :detour    — dynamically generate follow-up questions based on an answer
     #
     # All LLM nodes are collecting (they produce answers) and require server
     # round-trips. The frontend shows a "thinking" state while the server processes.
     #
     # @attr_reader prompt [String] LLM prompt template
-    # @attr_reader schema [Schema, nil] expected output structure (required for clarify/detour)
+    # @attr_reader schema [Schema, nil] expected output structure (required for extract)
     # @attr_reader from_steps [Array<Symbol>] source step ids whose answers feed the LLM
     # @attr_reader from_all [Boolean] whether to pass all collected answers to the LLM
     # @attr_reader model [Symbol, nil] optional model hint (e.g. :claude_sonnet)
@@ -24,7 +24,8 @@ module Inquirex
     # @attr_reader max_tokens [Integer, nil] optional max output tokens
     # @attr_reader fallback [Proc, nil] server-side fallback (stripped from JSON)
     class Node < Inquirex::Node
-      LLM_VERBS = %i[clarify describe summarize detour].freeze
+      LLM_VERBS = %i[extract].freeze
+      # LLM_VERBS = %i[extract describe summarize detour].freeze
 
       attr_reader :prompt,
         :schema,
@@ -89,7 +90,8 @@ module Inquirex
       # @param hash [Hash]
       # @return [LLM::Node]
       def self.from_h(id, hash)
-        verb             = hash["verb"]        || hash[:verb]
+        verb             = hash["verb"] || hash[:verb]
+        verb             = :extract if verb.to_s == "clarify" # DSL alias; normalize wire format
         question         = hash["question"]    || hash[:question]
         text             = hash["text"]        || hash[:text]
         transitions_data = hash["transitions"] || hash[:transitions] || []

@@ -24,7 +24,7 @@ RSpec.describe Inquirex::LLM do
           transition to: :extracted
         end
 
-        clarify :extracted do
+        extract :extracted do
           from :greeting
           prompt "Extract key facts."
           schema name: :string, age: :integer
@@ -43,7 +43,7 @@ RSpec.describe Inquirex::LLM do
 
     it "builds LLM nodes via the core entry point" do
       expect(definition.step(:extracted)).to be_a(Inquirex::LLM::Node)
-      expect(definition.step(:extracted).verb).to eq :clarify
+      expect(definition.step(:extracted).verb).to eq :extract
     end
 
     it "core nodes are unaffected" do

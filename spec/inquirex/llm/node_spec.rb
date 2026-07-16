@@ -7,7 +7,7 @@ RSpec.describe Inquirex::LLM::Node do
   subject(:node) do
     described_class.new(
       id:          :extract_biz,
-      verb:        :clarify,
+      verb:        :extract,
       prompt:      "Extract business info from the description.",
       schema:      schema,
       from_steps:  [:description],
@@ -22,7 +22,7 @@ RSpec.describe Inquirex::LLM::Node do
 
   describe "attributes" do
     its(:id) { is_expected.to eq :extract_biz }
-    its(:verb) { is_expected.to eq :clarify }
+    its(:verb) { is_expected.to eq :extract }
     its(:prompt) { is_expected.to eq "Extract business info from the description." }
     its(:schema) { is_expected.to eq schema }
     its(:from_steps) { is_expected.to eq [:description] }
@@ -54,7 +54,7 @@ RSpec.describe Inquirex::LLM::Node do
   describe "#to_h" do
     subject(:hash) { node.to_h }
 
-    it { is_expected.to include("verb" => "clarify") }
+    it { is_expected.to include("verb" => "extract") }
     it { is_expected.to include("requires_server" => true) }
 
     it "serializes LLM metadata under 'llm' key" do
@@ -79,7 +79,7 @@ RSpec.describe Inquirex::LLM::Node do
     it "strips fallback procs" do
       node_with_fallback = described_class.new(
         id:         :fb,
-        verb:       :clarify,
+        verb:       :extract,
         prompt:     "test",
         schema:     schema,
         from_steps: [:x],
@@ -93,7 +93,7 @@ RSpec.describe Inquirex::LLM::Node do
     subject(:restored) { described_class.from_h(:extract_biz, node.to_h) }
 
     its(:id) { is_expected.to eq :extract_biz }
-    its(:verb) { is_expected.to eq :clarify }
+    its(:verb) { is_expected.to eq :extract }
     its(:prompt) { is_expected.to eq "Extract business info from the description." }
     its(:schema) { is_expected.to eq schema }
     its(:from_steps) { is_expected.to eq [:description] }
@@ -105,14 +105,38 @@ RSpec.describe Inquirex::LLM::Node do
       expect(restored.transitions.size).to eq 1
       expect(restored.transitions.first.target).to eq :next_step
     end
+
+    it "normalizes the clarify alias to extract" do
+      legacy = node.to_h.merge("verb" => "clarify")
+      expect(described_class.from_h(:extract_biz, legacy).verb).to eq :extract
+    end
   end
 
-  describe "from_all node" do
+  # describe "from_all node" do
+  #   subject(:node_all) do
+  #     described_class.new(
+  #       id:       :summary,
+  #       verb:     :summarize,
+  #       prompt:   "Summarize everything.",
+  #       from_all: true
+  #     )
+  #   end
+  #
+  #   its(:from_all) { is_expected.to be true }
+  #   its(:from_steps) { is_expected.to be_empty }
+  #
+  #   it "serializes from_all" do
+  #     expect(node_all.to_h["llm"]["from_all"]).to be true
+  #   end
+  # end
+
+  describe "from_all on extract" do
     subject(:node_all) do
       described_class.new(
-        id:       :summary,
-        verb:     :summarize,
-        prompt:   "Summarize everything.",
+        id:       :extract_all,
+        verb:     :extract,
+        prompt:   "Extract from everything.",
+        schema:   schema,
         from_all: true
       )
     end
@@ -126,14 +150,18 @@ RSpec.describe Inquirex::LLM::Node do
   end
 
   describe ".llm_verb?" do
-    it "recognizes all four LLM verbs" do
-      %i[clarify describe summarize detour].each do |verb|
-        expect(described_class.llm_verb?(verb)).to be true
-      end
+    it "recognizes extract" do
+      expect(described_class.llm_verb?(:extract)).to be true
     end
 
-    it "rejects core verbs" do
-      %i[ask say header confirm].each do |verb|
+    # it "recognizes all four LLM verbs" do
+    #   %i[extract describe summarize detour].each do |verb|
+    #     expect(described_class.llm_verb?(verb)).to be true
+    #   end
+    # end
+
+    it "rejects core verbs and parked LLM verbs" do
+      %i[ask say header confirm describe summarize detour].each do |verb|
         expect(described_class.llm_verb?(verb)).to be false
       end
     end

@@ -8,7 +8,7 @@ module Inquirex
       # while inheriting transition and skip_if from the core StepBuilder.
       #
       # @example
-      #   clarify :business_extracted do
+      #   extract :business_extracted do
       #     from :business_description
       #     prompt "Extract structured business info."
       #     schema industry: :string, employee_count: :integer
@@ -112,7 +112,7 @@ module Inquirex
           @skip_if = rule
         end
 
-        # Optional display text (used by describe/summarize for user-visible labels).
+        # Optional display text (user-visible label for the step).
         #
         # @param content [String]
         def question(content)
@@ -159,15 +159,20 @@ module Inquirex
         def validate!(id)
           raise Errors::DefinitionError, "LLM step #{id.inspect} requires a prompt" if @prompt.nil?
 
-          if %i[clarify detour].include?(@verb) && @schema_fields.empty?
+          # Schema required for extract (and formerly detour).
+          if %i[extract].include?(@verb) && @schema_fields.empty?
+            # if %i[extract detour].include?(@verb) && @schema_fields.empty?
             raise Errors::DefinitionError,
               "LLM step #{id.inspect} (#{@verb}) requires a schema"
           end
 
-          return unless @from_steps.empty? && !@from_all && @verb != :summarize
+          return unless @from_steps.empty? && !@from_all
+          # return unless @from_steps.empty? && !@from_all && @verb != :summarize
 
-          # clarify/describe/detour should reference source steps or from_all
-          return unless %i[clarify describe detour].include?(@verb)
+          # extract (and formerly describe/detour) should reference source steps or from_all
+          return unless %i[extract].include?(@verb)
+
+          # return unless %i[extract describe detour].include?(@verb)
 
           raise Errors::DefinitionError,
             "LLM step #{id.inspect} (#{@verb}) requires `from` or `from_all`"

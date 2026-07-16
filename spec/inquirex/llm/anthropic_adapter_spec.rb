@@ -8,10 +8,10 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
   let(:api_key) { "test-key-xyz" }
   let(:schema)  { Inquirex::LLM::Schema.new(filing_status: :string, dependents: :integer) }
 
-  let(:clarify_node) do
+  let(:extract_node) do
     Inquirex::LLM::Node.new(
       id:          :extracted,
-      verb:        :clarify,
+      verb:        :extract,
       prompt:      "Extract tax intake fields from the client's description.",
       schema:      schema,
       from_steps:  [:tell_me],
@@ -21,11 +21,21 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
     )
   end
 
-  let(:summarize_node) do
+  # let(:summarize_node) do
+  #   Inquirex::LLM::Node.new(
+  #     id:       :summary,
+  #     verb:     :summarize,
+  #     prompt:   "Summarize intake.",
+  #     from_all: true
+  #   )
+  # end
+
+  let(:from_all_node) do
     Inquirex::LLM::Node.new(
-      id:       :summary,
-      verb:     :summarize,
-      prompt:   "Summarize intake.",
+      id:       :extract_all,
+      verb:     :extract,
+      prompt:   "Extract from everything.",
+      schema:   schema,
       from_all: true
     )
   end
@@ -70,13 +80,13 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
 
     describe "#resolve_model" do
       it "maps :claude_sonnet to the concrete model id" do
-        expect(adapter.send(:resolve_model, clarify_node))
+        expect(adapter.send(:resolve_model, extract_node))
           .to eq("claude-sonnet-4-20250514")
       end
 
       it "falls back to the default when the node has no model" do
         node = Inquirex::LLM::Node.new(
-          id: :x, verb: :clarify, prompt: "p", schema: schema, from_steps: [:a]
+          id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:a]
         )
         expect(adapter.send(:resolve_model, node)).to eq(described_class::DEFAULT_MODEL)
       end
@@ -84,7 +94,7 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
       it "honours the instance default_model override" do
         custom = described_class.new(api_key: api_key, model: "claude-opus-4-20250514")
         node = Inquirex::LLM::Node.new(
-          id: :x, verb: :clarify, prompt: "p", schema: schema, from_steps: [:a]
+          id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:a]
         )
         expect(custom.send(:resolve_model, node)).to eq("claude-opus-4-20250514")
       end
@@ -92,29 +102,29 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
 
     describe "#build_system_prompt" do
       it "includes the schema JSON when the node has a schema" do
-        text = adapter.send(:build_system_prompt, clarify_node)
+        text = adapter.send(:build_system_prompt, extract_node)
         expect(text).to include('"filing_status": "string"')
         expect(text).to include('"dependents": "integer"')
         expect(text).to include("No markdown fences")
       end
 
-      it "emits the no-schema instruction for summarize" do
-        text = adapter.send(:build_system_prompt, summarize_node)
-        expect(text).to include("valid JSON object containing your analysis")
-      end
+      # it "emits the no-schema instruction for summarize" do
+      #   text = adapter.send(:build_system_prompt, summarize_node)
+      #   expect(text).to include("valid JSON object containing your analysis")
+      # end
     end
 
     describe "#build_user_prompt" do
-      subject(:text) { adapter.send(:build_user_prompt, clarify_node, { tell_me: "MFJ two kids" }, answers) }
+      subject(:text) { adapter.send(:build_user_prompt, extract_node, { tell_me: "MFJ two kids" }, answers) }
 
       it { is_expected.to include("Task: Extract tax intake fields") }
       it { is_expected.to include("tell_me: \"MFJ two kids\"") }
       it { is_expected.to include("filing_status (string)") }
       it { is_expected.to include("dependents (integer)") }
 
-      it "includes all answers for summarize when from_all is set" do
+      it "includes all answers when from_all is set" do
         all_answers = { tell_me: "x", filing_status: "single" }
-        out = adapter.send(:build_user_prompt, summarize_node, {}, all_answers)
+        out = adapter.send(:build_user_prompt, from_all_node, {}, all_answers)
         expect(out).to include("All collected answers:")
         expect(out).to include("filing_status: \"single\"")
       end
@@ -179,7 +189,7 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
         ok("content" => [{ "type" => "text", "text" => '{"filing_status":"single","dependents":2}' }])
       end
 
-      result = adapter.call(clarify_node, answers)
+      result = adapter.call(extract_node, answers)
 
       expect(result).to eq(filing_status: "single", dependents: 2)
       expect(captured["x-api-key"]).to eq(api_key)
@@ -195,7 +205,7 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
     it "raises AdapterError on non-2xx responses" do
       allow(http).to receive(:request).and_return(err(429, '{"error":"rate limit"}'))
 
-      expect { adapter.call(clarify_node, answers) }
+      expect { adapter.call(extract_node, answers) }
         .to raise_error(Inquirex::LLM::Errors::AdapterError, /429/)
     end
 
@@ -204,13 +214,13 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
         ok("content" => [{ "type" => "text", "text" => '{"filing_status":"single"}' }])
       )
 
-      expect { adapter.call(clarify_node, answers) }
+      expect { adapter.call(extract_node, answers) }
         .to raise_error(Inquirex::LLM::Errors::SchemaViolationError, /dependents/)
     end
 
     it "uses default max_tokens when the node does not specify one" do
       node = Inquirex::LLM::Node.new(
-        id: :x, verb: :clarify, prompt: "p", schema: schema, from_steps: [:tell_me]
+        id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:tell_me]
       )
       captured = nil
       allow(http).to receive(:request) do |req|

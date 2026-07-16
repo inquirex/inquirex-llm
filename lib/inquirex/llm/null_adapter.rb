@@ -5,13 +5,13 @@ module Inquirex
     # Test adapter that returns schema-conformant placeholder values without
     # calling any LLM API. Useful for testing flows that include LLM steps.
     #
-    # For clarify/detour steps with a schema, returns a hash of default values
-    # matching each field's declared type. For describe/summarize steps, returns
+    # For extract steps with a schema, returns a hash of default values
+    # matching each field's declared type. Without a schema, returns
     # a placeholder string.
     #
     # @example
     #   adapter = Inquirex::LLM::NullAdapter.new
-    #   result = adapter.call(clarify_node, answers)
+    #   result = adapter.call(extract_node, answers)
     #   # => { industry: "", employee_count: 0, ... }
     class NullAdapter < Adapter
       TYPE_DEFAULTS = {
