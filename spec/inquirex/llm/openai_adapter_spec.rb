@@ -114,6 +114,36 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
     end
   end
 
+  describe "value-constrained schema prompts" do
+    subject(:adapter) { described_class.new(api_key: api_key) }
+
+    let(:constrained_node) do
+      Inquirex::LLM::Node.new(
+        id:         :extracted,
+        verb:       :extract,
+        prompt:     "Extract.",
+        schema:     Inquirex::LLM::Schema.new(
+          filing_status: { type: :enum, values: %w[single mfj] },
+          income_types:  { type: :multi_enum, values: %w[W2 crypto] }
+        ),
+        from_steps: [:tell_me]
+      )
+    end
+
+    it "embeds the allowed values in the system prompt contract" do
+      text = adapter.send(:build_system_prompt, constrained_node)
+      expect(text).to include('"type": "multi_enum"')
+      expect(text).to include('"W2"')
+      expect(text).to include("ONLY values from that list")
+    end
+
+    it "lists allowed values in the user prompt field descriptions" do
+      text = adapter.send(:build_user_prompt, constrained_node, { tell_me: "x" }, {})
+      expect(text).to include("filing_status (enum: single | mfj)")
+      expect(text).to include("income_types (multi_enum: W2 | crypto)")
+    end
+  end
+
   describe "#parse_response" do
     subject(:adapter) { described_class.new(api_key: api_key) }
 

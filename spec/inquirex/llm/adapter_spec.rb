@@ -132,5 +132,43 @@ RSpec.describe "LLM Adapters" do
       it { is_expected.to include("extract") }
       it { is_expected.to include("bare") }
     end
+
+    describe "#call with value-constrained schema" do
+      subject(:result) { adapter.call(constrained_node) }
+
+      let(:constrained_schema) do
+        Inquirex::LLM::Schema.new(
+          status:  { type: :enum, values: %w[single married] },
+          incomes: { type: :multi_enum, values: %w[W2 crypto] },
+          count:   :integer
+        )
+      end
+
+      let(:constrained_node) do
+        Inquirex::LLM::Node.new(
+          id:         :constrained,
+          verb:       :extract,
+          prompt:     "test",
+          schema:     constrained_schema,
+          from_steps: [:x]
+        )
+      end
+
+      it "returns the first allowed value for enum fields" do
+        expect(result[:status]).to eq "single"
+      end
+
+      it "returns an array with the first allowed value for multi_enum fields" do
+        expect(result[:incomes]).to eq ["W2"]
+      end
+
+      it "keeps type defaults for unconstrained fields" do
+        expect(result[:count]).to eq 0
+      end
+
+      it "conforms to the schema" do
+        expect(constrained_schema.valid_output?(result)).to be true
+      end
+    end
   end
 end

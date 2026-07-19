@@ -88,9 +88,9 @@ module Inquirex
 
       def schema_instruction(node)
         if node.respond_to?(:schema) && node.schema
-          schema_json = node.schema.fields.transform_values(&:to_s)
           "\n\nThe JSON object MUST match this schema exactly (same keys, appropriate types):\n" \
-            "#{JSON.pretty_generate(schema_json)}\n\n" \
+            "#{schema_contract_json(node.schema)}\n" \
+            "#{values_instruction(node.schema)}\n\n" \
             "Every key in the schema must be present in your output. Use null, \"\", 0, or [] " \
             "for values the source text does not provide."
         else
@@ -109,7 +109,7 @@ module Inquirex
 
         if node.respond_to?(:schema) && node.schema
           parts << "\nExtract these fields as a JSON object:"
-          node.schema.fields.each { |field, type| parts << "  #{field} (#{type})" }
+          parts.concat(field_descriptions(node.schema))
         end
 
         if node.respond_to?(:from_all) && node.from_all && all_answers.any?
