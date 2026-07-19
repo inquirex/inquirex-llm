@@ -17,6 +17,7 @@ Naming/FileName:
   Exclude:
     - 'lib/inquirex-llm.rb'
     - "bin/**/*"
+    - "examples/**/*"
 
 
 Style/StringLiterals:

@@ -78,20 +78,89 @@ extract :business_extracted do
 end
 ```
 
+## Schema: Question References (preferred)
+
+Most extract schemas exist to pre-fill questions asked later in the same flow. Declaring
+those fields twice — once in the schema, once in the question — invites drift, and worse:
+a hand-typed `income_types: :multi_enum` gives the LLM no idea which values are legal, so
+its answers won't match the question's options.
+
+Instead, pass the schema as a list of question ids:
+
+```ruby
+extract :extracted do
+  from :description
+  prompt "Extract the client's filing status, dependents, and income types."
+  schema :filing_status, :dependents, :income_types
+  transition to: :filing_status
+end
+
+ask :filing_status do
+  type :enum
+  question "Filing status?"
+  options({ "single" => "Single", "mfj" => "Married Filing Jointly" })
+  transition to: :dependents
+end
+# ...
+```
+
+Each symbol is resolved against the flow at definition time — references may point
+**forward** to questions defined after the extract step. The gem looks up the question's
+declared type, and for `:enum` / `:multi_enum` questions folds the exhaustive list of
+allowed option values into the JSON schema sent to the LLM. The adapters then instruct
+the model to answer using only those values, so extracted answers always match the
+downstream question's options (and `Engine#prefill!` can skip the question).
+
+A symbol that matches no `ask`/`confirm` step in the flow fails validation with
+`Inquirex::LLM::Errors::DefinitionError` — as do references to display-only steps and
+other LLM steps.
+
+Both forms compose. Use keywords for output fields that have no corresponding question:
+
+```ruby
+schema :filing_status, :income_types, confidence: :decimal
+```
+
+### `prompt :auto`
+
+When the schema is built from question references, the schema already tells the LLM the
+field names, types, and allowed values — the main thing a hand-written prompt still adds
+is the questions' own wording. `prompt :auto` generates exactly that at definition time:
+
+```ruby
+extract :extracted do
+  from :description
+  prompt :auto
+  schema :filing_status, :dependents, :income_types
+  transition to: :filing_status
+end
+```
+
+The generated prompt enumerates each referenced question's text ("- filing_status: What
+is your filing status for 2025?" …), lists explicit keyword fields by name and type, and
+instructs the model to leave unsupported fields empty. Generation happens at build time,
+so the wire format and adapters always see a concrete prompt string — `:auto` never
+leaves the DSL. It requires at least one question reference; with only explicit
+`key: :type` fields there is no question wording to generate from, and validation fails.
+
+Write the prompt by hand when you need domain framing the questions don't carry
+("for tax filing purposes", "map S-Corp to s_corp") — an explicit prompt always wins.
+
 ## DSL Methods (inside LLM verb blocks)
 
-| Method                         | Purpose                                   | Required                      |
-| ------------------------------ | ----------------------------------------- | ----------------------------- |
-| `prompt "..."`                 | LLM prompt template                       | Always                        |
-| `schema key: :type, ...`       | Expected output structure                 | `extract`                     |
-| `from :step_id`                | Source step(s) whose answers feed the LLM | `extract` (or use `from_all`) |
-| `from_all`                     | Pass all collected answers to the LLM     | Alternative to `from`         |
-| `model :claude_sonnet`         | Optional model hint for the adapter       | No                            |
-| `temperature 0.3`              | Optional sampling temperature             | No                            |
-| `max_tokens 1024`              | Optional max output tokens                | No                            |
-| `fallback { \|answers\| ... }` | Server-side fallback (stripped from JSON) | No                            |
-| `transition to: :step`         | Conditional transition (same as core)     | No                            |
-| `skip_if rule`                 | Skip step when condition is true          | No                            |
+| Method                          | Purpose                                              | Required                      |
+| ------------------------------- | ---------------------------------------------------- | ----------------------------- |
+| `prompt "..."` / `prompt :auto` | LLM prompt template, or generated from question refs | Always                        |
+| `schema :question_id, ...`      | Fields resolved from questions (types + options)     | `extract` (this or keywords)  |
+| `schema key: :type, ...`        | Explicit field => type pairs                         | `extract` (this or refs)      |
+| `from :step_id`                 | Source step(s) whose answers feed the LLM            | `extract` (or use `from_all`) |
+| `from_all`                      | Pass all collected answers to the LLM                | Alternative to `from`         |
+| `model :claude_sonnet`          | Optional model hint for the adapter                  | No                            |
+| `temperature 0.3`               | Optional sampling temperature                        | No                            |
+| `max_tokens 1024`               | Optional max output tokens                           | No                            |
+| `fallback { \|answers\| ... }`  | Server-side fallback (stripped from JSON)            | No                            |
+| `transition to: :step`          | Conditional transition (same as core)                | No                            |
+| `skip_if rule`                  | Skip step when condition is true                     | No                            |
 
 ## Engine Integration
 
@@ -224,7 +293,11 @@ LLM steps serialize with `"requires_server": true` so the JS widget knows to rou
     "schema": {
       "industry": "string",
       "employee_count": "integer",
-      "revenue": "currency"
+      "revenue": "currency",
+      "income_types": {
+        "type": "multi_enum",
+        "values": ["W2", "business", "crypto"]
+      }
     },
     "from_steps": ["business_description"],
     "model": "claude_sonnet",
@@ -234,7 +307,10 @@ LLM steps serialize with `"requires_server": true` so the JS widget knows to rou
 }
 ```
 
-Fallback procs are stripped from JSON (server-side only).
+Unconstrained fields serialize as a plain type string; fields resolved from `:enum` /
+`:multi_enum` questions serialize as `{ "type": ..., "values": [...] }` so any consumer
+(the JS widget, a server adapter) sees the full contract. Fallback procs are stripped
+from JSON (server-side only).
 
 ## Custom Adapter
 
