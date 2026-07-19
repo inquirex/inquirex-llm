@@ -17,7 +17,7 @@ Extends the core DSL with a server-side `extract` verb (alias: `clarify`) that t
 > - [`inquirex-tty`](https://github.com/inquirex/inquirex-)
 > - [`inquirex-js`](https://github.com/inquirex/inquirex-js) (`npmjs` module [`@kigster/inquirex-js`](https://www.npmjs.com/package/@kigster/inquirex-js))
 >
-> For a presentation about these gems and what they do please watch the [RubySF presentation](https://www.youtube.com/watch?v=iaoKW7Ap3_M&t=1s) and you can also [view the slides form the presentation](https://reinvent.one/images/talks/pdfs/2026.inquirex.pdf).
+> For a presentation about these gems and what they do please watch the [RubySF presentation](https://www.youtube.com/watch?v=iaoKW7Ap3_M&t=1s) and you can also [view the slides from the presentation](https://reinvent.one/images/talks/pdfs/2026.inquirex.pdf).
 >
 > Finally, the SaaS application [qualified.at](https://qualified.at) allows users to leverage the ecosystem by creating their own custom lead intake flows and integrating them on their own sites.
 
