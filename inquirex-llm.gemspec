@@ -35,5 +35,5 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "inquirex", "~> 0.4"
+  spec.add_dependency "inquirex", "~> 0.6"
 end
