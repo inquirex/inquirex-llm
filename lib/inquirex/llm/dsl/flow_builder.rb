@@ -4,12 +4,16 @@ module Inquirex
   module LLM
     module DSL
       # Mixin that adds LLM verb methods to Inquirex::DSL::FlowBuilder.
-      # Included automatically when `require "inquirex-llm"` is called,
+      # Prepended automatically when `require "inquirex-llm"` is called,
       # so that `Inquirex.define` gains `extract` (and its `clarify` alias)
       # without needing a separate entry point.
       #
       # All core verbs (ask, say, header, btw, warning, confirm) remain
-      # unchanged — LLM verbs are purely additive.
+      # unchanged — LLM verbs are purely additive. The mixin must be
+      # prepended (not included) because it overrides #build: LLM steps are
+      # built lazily at #build time, once every step in the flow is known,
+      # so that schema question references can resolve forward to questions
+      # defined after the LLM step.
       module FlowBuilderExtension
         # Defines an LLM extraction step: takes free-text input and produces
         # structured data matching the declared schema.
@@ -46,13 +50,28 @@ module Inquirex
         #   add_llm_step(id, :detour, &)
         # end
 
+        # Builds any deferred LLM steps (now that the full node map exists),
+        # then produces the frozen Definition via the core builder.
+        def build
+          resolve_llm_steps!
+          super
+        end
+
         private
 
-        # Uses the standard Ruby builder pattern (same as core FlowBuilder#add_step).
+        # Evaluates the step block immediately (same as core FlowBuilder#add_step)
+        # but parks the builder in the node map instead of building the node.
+        # The builder placeholder holds this step's position; #build replaces it.
         def add_llm_step(id, verb, &block)
           builder = LlmStepBuilder.new(verb)
           builder.instance_eval(&block) if block
-          @nodes[id.to_sym] = builder.build(id)
+          @nodes[id.to_sym] = builder
+        end
+
+        def resolve_llm_steps!
+          @nodes.each do |id, entry|
+            @nodes[id] = entry.build(id, nodes: @nodes) if entry.is_a?(LlmStepBuilder)
+          end
         end
       end
     end

@@ -103,4 +103,84 @@ RSpec.describe Inquirex::LLM::Schema do
     it { is_expected.to include("industry:string") }
     it { is_expected.to include("employee_count:integer") }
   end
+
+  describe "value-constrained fields" do
+    subject(:constrained) do
+      described_class.new(
+        filing_status: { type: :enum, values: %w[single married_filing_jointly head_of_household] },
+        income_types:  { type: :multi_enum, values: %w[W2 business crypto] },
+        dependents:    :integer
+      )
+    end
+
+    describe "#fields" do
+      subject { constrained.fields }
+
+      it { is_expected.to eq(filing_status: :enum, income_types: :multi_enum, dependents: :integer) }
+    end
+
+    describe "#values_for" do
+      it "returns the allowed values for constrained fields" do
+        expect(constrained.values_for(:filing_status)).to eq %w[single married_filing_jointly head_of_household]
+        expect(constrained.values_for(:income_types)).to eq %w[W2 business crypto]
+      end
+
+      it "returns nil for unconstrained fields" do
+        expect(constrained.values_for(:dependents)).to be_nil
+      end
+
+      it "returns nil for unknown fields" do
+        expect(constrained.values_for(:nope)).to be_nil
+      end
+
+      it "accepts string field names" do
+        expect(constrained.values_for("income_types")).to eq %w[W2 business crypto]
+      end
+    end
+
+    describe "#to_h wire format" do
+      subject(:wire) { constrained.to_h }
+
+      it "serializes constrained fields as type + values" do
+        expect(wire["filing_status"]).to eq(
+          "type" => "enum", "values" => %w[single married_filing_jointly head_of_household]
+        )
+      end
+
+      it "serializes unconstrained fields as a plain type string" do
+        expect(wire["dependents"]).to eq "integer"
+      end
+    end
+
+    describe "JSON round-trip with values" do
+      subject(:restored) { described_class.from_h(JSON.parse(constrained.to_json)) }
+
+      it { is_expected.to eq constrained }
+
+      it "preserves allowed values" do
+        expect(restored.values_for(:income_types)).to eq %w[W2 business crypto]
+      end
+    end
+
+    describe "validation" do
+      it "raises when a hash spec has no :type" do
+        expect { described_class.new(broken: { values: %w[a b] }) }.to raise_error(
+          Inquirex::LLM::Errors::DefinitionError, /missing :type/
+        )
+      end
+
+      it "raises on unknown type inside a hash spec" do
+        expect { described_class.new(broken: { type: :banana }) }.to raise_error(
+          Inquirex::LLM::Errors::DefinitionError, /Unknown type.*banana/
+        )
+      end
+    end
+
+    describe "#inspect" do
+      subject { constrained.inspect }
+
+      it { is_expected.to include("income_types:multi_enum(W2|business|crypto)") }
+      it { is_expected.to include("dependents:integer") }
+    end
+  end
 end

@@ -42,4 +42,7 @@ end
 
 # Inject LLM verbs into the core FlowBuilder so that Inquirex.define
 # gains extract (and clarify as an alias) when this gem is loaded.
-Inquirex::DSL::FlowBuilder.include(Inquirex::LLM::DSL::FlowBuilderExtension)
+# Prepend (not include): the extension overrides #build to defer LLM node
+# construction until the whole flow is known, so schema question references
+# can resolve forward to questions defined after the LLM step.
+Inquirex::DSL::FlowBuilder.prepend(Inquirex::LLM::DSL::FlowBuilderExtension)

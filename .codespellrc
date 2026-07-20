@@ -1,0 +1,4 @@
+[codespell]
+# nd  — North Dakota in US_STATES option lists
+# hsa — Health Savings Account
+ignore-words-list = nd,hsa

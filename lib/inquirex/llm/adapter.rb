@@ -64,6 +64,45 @@ module Inquirex
         raise Errors::SchemaViolationError,
           "LLM output for #{node.id.inspect} missing fields: #{missing.join(", ")}"
       end
+
+      protected
+
+      # The schema as a JSON contract for the system prompt: enum-constrained
+      # fields render as { "type": ..., "values": [...] } so the model knows
+      # the exhaustive list of allowed answers.
+      #
+      # @param schema [Schema]
+      # @return [String] pretty-printed JSON
+      def schema_contract_json(schema)
+        JSON.pretty_generate(schema.to_h)
+      end
+
+      # Prompt instruction spelling out how value-constrained fields must be
+      # answered. Empty string when the schema has no constrained fields.
+      #
+      # @param schema [Schema]
+      # @return [String]
+      def values_instruction(schema)
+        constrained = schema.field_names.select { |name| schema.values_for(name) }
+        return "" if constrained.empty?
+
+        "\nFor fields that declare \"values\", you MUST answer using ONLY values from that list — " \
+          "return a single value for \"enum\" fields and an array of selected values for " \
+          "\"multi_enum\" fields. Never invent a value outside the list."
+      end
+
+      # One human-readable line per schema field, used in user prompts:
+      #   income_types (multi_enum: W2 | business | crypto)
+      #   dependents (integer)
+      #
+      # @param schema [Schema]
+      # @return [Array<String>]
+      def field_descriptions(schema)
+        schema.fields.map do |field, type|
+          values = schema.values_for(field)
+          values ? "  #{field} (#{type}: #{values.join(" | ")})" : "  #{field} (#{type})"
+        end
+      end
     end
   end
 end
