@@ -65,7 +65,50 @@ module Inquirex
           "LLM output for #{node.id.inspect} missing fields: #{missing.join(", ")}"
       end
 
+      # Canonicalizes LLM output against the schema's value constraints — the
+      # regression guard for "the model answered with a label or a case
+      # variant". Every value-constrained field is matched against the
+      # allowed form values: an exact match passes through, a
+      # case-insensitive match is rewritten to the canonical value, and a
+      # value outside the list becomes nil (enum) or is dropped from the
+      # array (multi_enum) — "unknown, will ask" instead of junk that
+      # prefills the wrong option downstream. Unconstrained fields are
+      # untouched.
+      #
+      # @param node [LLM::Node]
+      # @param output [Hash, Object] parsed LLM response
+      # @return [Hash, Object] output with constrained fields canonicalized
+      def normalize_output(node, output)
+        schema = node.respond_to?(:schema) ? node.schema : nil
+        return output unless schema && output.is_a?(Hash)
+
+        output.to_h do |key, raw|
+          values = schema.values_for(key)
+          next [key, raw] unless values
+
+          if schema.fields[key.to_sym] == :multi_enum
+            [key, Array(raw).filter_map { |entry| canonical_value(values, entry) }]
+          else
+            [key, canonical_value(values, raw)]
+          end
+        end
+      end
+
       protected
+
+      # The canonical form value for a raw LLM answer, or nil when the answer
+      # is outside the allowed list (after trimming and case-folding).
+      #
+      # @param values [Array<String>] allowed form values
+      # @param raw [Object] one LLM-provided value
+      # @return [String, nil]
+      def canonical_value(values, raw)
+        return nil if raw.nil?
+
+        candidate = raw.to_s.strip
+        values.find { |value| value == candidate } ||
+          values.find { |value| value.casecmp?(candidate) }
+      end
 
       # The schema as a JSON contract for the system prompt: enum-constrained
       # fields render as { "type": ..., "values": [...] } so the model knows

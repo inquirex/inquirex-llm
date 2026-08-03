@@ -58,6 +58,70 @@ RSpec.describe "LLM Adapters" do
       end
     end
 
+    # Regression: the model answering with a case variant or a value outside
+    # the allowed list must never reach the engine as-is — "us_person" is a
+    # form value contract, not a suggestion. Labels are not known to the
+    # adapter (the schema carries values only), so anything that is not a
+    # value becomes nil/dropped: "unknown, will ask".
+    describe "#normalize_output" do
+      let(:constrained_schema) do
+        Inquirex::LLM::Schema.new(
+          residency: { type: :enum, values: %w[us_person resident] },
+          incomes:   { type: :multi_enum, values: %w[W2 crypto] },
+          note:      :string
+        )
+      end
+
+      let(:constrained_node) do
+        Inquirex::LLM::Node.new(
+          id:         :constrained,
+          verb:       :extract,
+          prompt:     "p",
+          schema:     constrained_schema,
+          from_steps: [:x]
+        )
+      end
+
+      it "passes exact form values through" do
+        output = adapter.normalize_output(constrained_node, { residency: "us_person", incomes: ["W2"] })
+        expect(output).to eq(residency: "us_person", incomes: ["W2"])
+      end
+
+      it "canonicalizes case variants to the form value" do
+        output = adapter.normalize_output(constrained_node, { residency: "US_Person", incomes: ["w2"] })
+        expect(output).to eq(residency: "us_person", incomes: ["W2"])
+      end
+
+      it "nils out an enum value outside the allowed list" do
+        output = adapter.normalize_output(constrained_node, { residency: "US citizen" })
+        expect(output[:residency]).to be_nil
+      end
+
+      it "drops multi_enum entries outside the allowed list" do
+        output = adapter.normalize_output(constrained_node, { incomes: ["W2", "bitcoin mining"] })
+        expect(output[:incomes]).to eq(["W2"])
+      end
+
+      it "wraps a scalar multi_enum answer in an array" do
+        output = adapter.normalize_output(constrained_node, { incomes: "crypto" })
+        expect(output[:incomes]).to eq(["crypto"])
+      end
+
+      it "leaves unconstrained fields untouched" do
+        output = adapter.normalize_output(constrained_node, { note: "Whatever The Model Said" })
+        expect(output[:note]).to eq("Whatever The Model Said")
+      end
+
+      it "returns non-hash output unchanged" do
+        expect(adapter.normalize_output(constrained_node, "free text")).to eq("free text")
+      end
+
+      it "returns output unchanged for schema-less nodes" do
+        bare = Inquirex::LLM::Node.new(id: :bare, verb: :extract, prompt: "p", from_steps: [:x])
+        expect(adapter.normalize_output(bare, { residency: "junk" })).to eq(residency: "junk")
+      end
+    end
+
     describe "#validate_output!" do
       it "passes when all schema fields present" do
         output = { name: "Acme", count: 5 }

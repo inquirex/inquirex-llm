@@ -65,7 +65,7 @@ module Inquirex
           max_tokens:  max_tokens
         )
 
-        result = parse_response(response)
+        result = normalize_output(node, parse_response(response))
         validate_output!(node, result)
         result
       end
