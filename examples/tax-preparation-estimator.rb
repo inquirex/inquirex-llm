@@ -25,15 +25,6 @@
 #
 # Run (from inquirex-tty): bundle exec exe/inquirex run ../inquirex-llm/examples/tax-preparation-estimator.rb
 
-US_STATES = %w[
-  AL AK AZ AR CA CO CT DE FL GA
-  HI ID IL IN IA KS KY LA ME MD
-  MA MI MN MS MO MT NE NV NH NJ
-  NM NY NC ND OH OK OR PA RI SC
-  SD TN TX UT VT VA WA WV WI WY
-  DC
-].freeze
-
 Inquirex.define id: "tax-preparer-2025", version: "2.0.0" do
   meta title: "Tax Preparation Intake",
     subtitle: "Help us scope your return and quote you a fair fee"
@@ -469,7 +460,15 @@ Inquirex.define id: "tax-preparer-2025", version: "2.0.0" do
   ask :state_filing do
     type :multi_enum
     question "Select every state (and DC) you need to file a return in."
-    options US_STATES
+    options %w[
+      AL AK AZ AR CA CO CT DE FL GA
+      HI ID IL IN IA KS KY LA ME MD
+      MA MI MN MS MO MT NE NV NH NJ
+      NM NY NC ND OH OK OR PA RI SC
+      SD TN TX UT VT VA WA WV WI WY
+      DC
+    ]
+
     widget target: :tty,     type: :multi_select
     widget target: :desktop, type: :checkbox_group, columns: 10, layout: :grid
     widget target: :mobile,  type: :multi_select_dropdown
