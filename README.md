@@ -14,8 +14,8 @@ Extends the core DSL with a server-side `extract` verb (alias: `clarify`) that t
 >
 > - [`inquirex`](https://github.com/inquirex/inquirex)
 > - [`inquirex-llm`](https://github.com/inquirex/inquirex-llm)
-> - [`inquirex-tty`](https://github.com/inquirex/inquirex-)
-> - [`inquirex-js`](https://github.com/inquirex/inquirex-js) (`npmjs` module [`@kigster/inquirex-js`](https://www.npmjs.com/package/@kigster/inquirex-js))
+> - [`inquirex-tty`](https://github.com/inquirex/inquirex-tty)
+> - [`inquirex-widget`](https://github.com/inquirex/inquirex-widget) (`npmjs` module [`inquirex-widget`](https://www.npmjs.com/package/inquirex-widget), formerly `@kigster/inquirex-js`)
 >
 > For a presentation about these gems and what they do please watch the [RubySF presentation](https://www.youtube.com/watch?v=iaoKW7Ap3_M&t=1s) and you can also [view the slides from the presentation](https://reinvent.one/images/talks/pdfs/2026.inquirex.pdf).
 >
@@ -80,10 +80,7 @@ end
 
 ## Schema: Question References (preferred)
 
-Most extract schemas exist to pre-fill questions asked later in the same flow. Declaring
-those fields twice — once in the schema, once in the question — invites drift, and worse:
-a hand-typed `income_types: :multi_enum` gives the LLM no idea which values are legal, so
-its answers won't match the question's options.
+Most extract schemas exist to pre-fill questions asked later in the same flow. Declaring those fields twice — once in the schema, once in the question — invites drift, and worse: a hand-typed `income_types: :multi_enum` gives the LLM no idea which values are legal, so its answers won't match the question's options.
 
 Instead, pass the schema as a list of question ids:
 
@@ -104,16 +101,9 @@ end
 # ...
 ```
 
-Each symbol is resolved against the flow at definition time — references may point
-**forward** to questions defined after the extract step. The gem looks up the question's
-declared type, and for `:enum` / `:multi_enum` questions folds the exhaustive list of
-allowed option values into the JSON schema sent to the LLM. The adapters then instruct
-the model to answer using only those values, so extracted answers always match the
-downstream question's options (and `Engine#prefill!` can skip the question).
+Each symbol is resolved against the flow at definition time — references may point **forward** to questions defined after the extract step. The gem looks up the question's declared type, and for `:enum` / `:multi_enum` questions folds the exhaustive list of allowed option values into the JSON schema sent to the LLM. The adapters then instruct the model to answer using only those values, so extracted answers always match the downstream question's options (and `Engine#prefill!` can skip the question).
 
-A symbol that matches no `ask`/`confirm` step in the flow fails validation with
-`Inquirex::LLM::Errors::DefinitionError` — as do references to display-only steps and
-other LLM steps.
+A symbol that matches no `ask`/`confirm` step in the flow fails validation with `Inquirex::LLM::Errors::DefinitionError` — as do references to display-only steps and other LLM steps.
 
 Both forms compose. Use keywords for output fields that have no corresponding question:
 
@@ -123,9 +113,7 @@ schema :filing_status, :income_types, confidence: :decimal
 
 ### `prompt :auto`
 
-When the schema is built from question references, the schema already tells the LLM the
-field names, types, and allowed values — the main thing a hand-written prompt still adds
-is the questions' own wording. `prompt :auto` generates exactly that at definition time:
+When the schema is built from question references, the schema already tells the LLM the field names, types, and allowed values — the main thing a hand-written prompt still adds is the questions' own wording. `prompt :auto` generates exactly that at definition time:
 
 ```ruby
 extract :extracted do
@@ -136,15 +124,9 @@ extract :extracted do
 end
 ```
 
-The generated prompt enumerates each referenced question's text ("- filing_status: What
-is your filing status for 2025?" …), lists explicit keyword fields by name and type, and
-instructs the model to leave unsupported fields empty. Generation happens at build time,
-so the wire format and adapters always see a concrete prompt string — `:auto` never
-leaves the DSL. It requires at least one question reference; with only explicit
-`key: :type` fields there is no question wording to generate from, and validation fails.
+The generated prompt enumerates each referenced question's text ("- filing_status: What is your filing status for 2025?" …), lists explicit keyword fields by name and type, and instructs the model to leave unsupported fields empty. Generation happens at build time, so the wire format and adapters always see a concrete prompt string — `:auto` never leaves the DSL. It requires at least one question reference; with only explicit `key: :type` fields there is no question wording to generate from, and validation fails.
 
-Write the prompt by hand when you need domain framing the questions don't carry
-("for tax filing purposes", "map S-Corp to s_corp") — an explicit prompt always wins.
+Write the prompt by hand when you need domain framing the questions don't carry ("for tax filing purposes", "map S-Corp to s_corp") — an explicit prompt always wins.
 
 ## DSL Methods (inside LLM verb blocks)
 
@@ -307,10 +289,7 @@ LLM steps serialize with `"requires_server": true` so the JS widget knows to rou
 }
 ```
 
-Unconstrained fields serialize as a plain type string; fields resolved from `:enum` /
-`:multi_enum` questions serialize as `{ "type": ..., "values": [...] }` so any consumer
-(the JS widget, a server adapter) sees the full contract. Fallback procs are stripped
-from JSON (server-side only).
+Unconstrained fields serialize as a plain type string; fields resolved from `:enum` / `:multi_enum` questions serialize as `{ "type": ..., "values": [...] }` so any consumer (the JS widget, a server adapter) sees the full contract. Fallback procs are stripped from JSON (server-side only).
 
 ## Custom Adapter
 
