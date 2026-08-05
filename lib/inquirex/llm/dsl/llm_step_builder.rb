@@ -167,7 +167,7 @@ module Inquirex
 
           field_map = resolve_schema_refs(id, nodes).merge(@schema_fields)
           schema_obj = field_map.empty? ? nil : Schema.new(**field_map)
-          prompt_text = @prompt == :auto ? auto_prompt(nodes) : @prompt
+          prompt_text = resolve_prompt(nodes)
 
           LLM::Node.new(
             id:,
@@ -188,6 +188,19 @@ module Inquirex
         end
 
         private
+
+        # The prompt this step will carry on the wire. `summarize` takes the
+        # gem's own text and never the author's; `:auto` is expanded here so
+        # that adapters only ever see a concrete string.
+        #
+        # @param nodes [Hash{Symbol => Inquirex::Node}, nil]
+        # @return [String]
+        def resolve_prompt(nodes)
+          return Prompts::SUMMARIZE if @verb == :summarize
+          return auto_prompt(nodes) if @prompt == :auto
+
+          @prompt
+        end
 
         # Turns question references into full field specs by looking up each
         # referenced step in the flow: its declared type, and for enum-like
@@ -271,6 +284,8 @@ module Inquirex
         end
 
         def validate!(id)
+          return validate_summarize!(id) if @verb == :summarize
+
           raise Errors::DefinitionError, "LLM step #{id.inspect} requires a prompt" if @prompt.nil?
 
           if @prompt == :auto && @schema_refs.empty?
@@ -296,6 +311,39 @@ module Inquirex
 
           raise Errors::DefinitionError,
             "LLM step #{id.inspect} (#{@verb}) requires `from` or `from_all`"
+        end
+
+        # `summarize` is defined by what it refuses. Its prompt is the gem's
+        # ({Prompts::SUMMARIZE}), its input is always the whole session
+        # transcript, its output is prose rather than fields, and it ends the
+        # flow. Every setter below would contradict one of those, so each is
+        # rejected at definition time with the reason rather than ignored at
+        # runtime.
+        #
+        # `temperature`, `model`, and `max_tokens` stay available: they change
+        # how the summary is generated, not what it is allowed to say.
+        def validate_summarize!(id)
+          reject_summarize!(id, "declares a prompt", "its prompt is owned by the gem") unless @prompt.nil?
+
+          unless @schema_fields.empty? && @schema_refs.empty?
+            reject_summarize!(id, "declares a schema", "it returns prose, not fields")
+          end
+
+          unless @from_steps.empty? && !@from_all
+            reject_summarize!(id,
+              "declares `from`/`from_all`",
+              "it always reads the whole session transcript")
+          end
+
+          return if @transitions.empty?
+
+          reject_summarize!(id, "declares a transition", "it must be the last step in the flow")
+        end
+
+        # @raise [Errors::DefinitionError]
+        def reject_summarize!(id, what, why)
+          raise Errors::DefinitionError,
+            "summarize step #{id.inspect} #{what}, which is not allowed — #{why}"
         end
       end
     end

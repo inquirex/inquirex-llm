@@ -5,6 +5,7 @@ require "json"
 
 require_relative "llm/version"
 require_relative "llm/errors"
+require_relative "llm/prompts"
 require_relative "llm/schema"
 require_relative "llm/node"
 require_relative "llm/adapter"
@@ -19,8 +20,8 @@ module Inquirex
   #
   # Extends the core DSL with LLM-powered verbs that run server-side:
   #   - extract   — extract structured data from free-text answers (`clarify` is an alias)
+  #   - summarize — close the flow with a prose summary of the whole session
   #   # - describe  — generate natural-language text from structured data
-  #   # - summarize — produce a summary of all or selected answers
   #   # - detour    — dynamically generate follow-up questions
   #
   # LLM calls never happen on the frontend. Steps are marked `requires_server: true`
