@@ -14,6 +14,7 @@ require_relative "llm/anthropic_adapter"
 require_relative "llm/openai_adapter"
 require_relative "llm/dsl/llm_step_builder"
 require_relative "llm/dsl/flow_builder"
+require_relative "llm/safe_source"
 
 module Inquirex
   # LLM integration layer for Inquirex flows.
@@ -47,3 +48,8 @@ end
 # construction until the whole flow is known, so schema question references
 # can resolve forward to questions defined after the LLM step.
 Inquirex::DSL::FlowBuilder.prepend(Inquirex::LLM::DSL::FlowBuilderExtension)
+
+# Teach SafeSource's default-deny allowlist about the verbs just added, so
+# that `Inquirex.load_dsl` accepts a stored flow using them. A no-op on
+# inquirex versions predating SafeSource.
+Inquirex::LLM::SafeSource.install!
