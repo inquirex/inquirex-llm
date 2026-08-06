@@ -5,6 +5,7 @@ require "json"
 
 require_relative "llm/version"
 require_relative "llm/errors"
+require_relative "llm/prompts"
 require_relative "llm/schema"
 require_relative "llm/node"
 require_relative "llm/adapter"
@@ -13,14 +14,15 @@ require_relative "llm/anthropic_adapter"
 require_relative "llm/openai_adapter"
 require_relative "llm/dsl/llm_step_builder"
 require_relative "llm/dsl/flow_builder"
+require_relative "llm/safe_source"
 
 module Inquirex
   # LLM integration layer for Inquirex flows.
   #
   # Extends the core DSL with LLM-powered verbs that run server-side:
   #   - extract   — extract structured data from free-text answers (`clarify` is an alias)
+  #   - summarize — close the flow with a prose summary of the whole session
   #   # - describe  — generate natural-language text from structured data
-  #   # - summarize — produce a summary of all or selected answers
   #   # - detour    — dynamically generate follow-up questions
   #
   # LLM calls never happen on the frontend. Steps are marked `requires_server: true`
@@ -46,3 +48,8 @@ end
 # construction until the whole flow is known, so schema question references
 # can resolve forward to questions defined after the LLM step.
 Inquirex::DSL::FlowBuilder.prepend(Inquirex::LLM::DSL::FlowBuilderExtension)
+
+# Teach SafeSource's default-deny allowlist about the verbs just added, so
+# that `Inquirex.load_dsl` accepts a stored flow using them. A no-op on
+# inquirex versions predating SafeSource.
+Inquirex::LLM::SafeSource.install!

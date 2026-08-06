@@ -47,6 +47,25 @@ module Inquirex
         end
       end
 
+      # Placeholder summary, in the markdown shape a real summary takes — so a
+      # renderer wired against this adapter exercises its heading, list, and
+      # paragraph handling rather than one unbroken line.
+      #
+      # @param node [LLM::Node] the summarize step
+      # @param transcript [String] the session transcript
+      # @param _answers [Hash] ignored
+      # @return [String] markdown
+      def summarize(node, transcript, _answers = {})
+        <<~MARKDOWN.strip
+          This is a placeholder summary for #{node.id}. No language model was called.
+
+          ## What the session contained
+
+          - A transcript of #{transcript.to_s.strip.length} characters.
+          - Nothing else worth reporting, because this adapter invents nothing.
+        MARKDOWN
+      end
+
       private
 
       def placeholder_for(schema, name, type)

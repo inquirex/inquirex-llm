@@ -35,6 +35,38 @@ module Inquirex
         raise NotImplementedError, "#{self.class}#call must be implemented"
       end
 
+      # Produces the closing prose summary for a `summarize` step.
+      #
+      # Separate from {#call} because nothing about it is the same: the prompt
+      # is the gem's rather than the node's, the input is the session
+      # transcript rather than selected answers, and the result is markdown
+      # rather than a schema-shaped Hash. Keeping it apart also means an
+      # existing custom adapter that only implements #call keeps working for
+      # `extract` and fails loudly — rather than subtly — if a flow starts
+      # asking it to summarise.
+      #
+      # @param node [LLM::Node] the summarize step
+      # @param transcript [String] everything the user was shown and answered
+      # @param answers [Hash] collected answers, for adapters that want them
+      # @return [String] markdown summary
+      # @raise [Errors::AdapterError] if the LLM call fails
+      def summarize(node, transcript, answers = {})
+        raise NotImplementedError, "#{self.class}#summarize must be implemented"
+      end
+
+      # The user-side prompt for a summarize call: the transcript, and nothing
+      # else that could compete with it for the model's attention.
+      #
+      # @param transcript [String]
+      # @return [String]
+      # @raise [Errors::AdapterError] when there is nothing to summarise
+      def summary_input(transcript)
+        text = transcript.to_s.strip
+        raise Errors::AdapterError, "Cannot summarize an empty transcript" if text.empty?
+
+        "Here is the session transcript.\n\n#{text}"
+      end
+
       # Gathers the source answer data that feeds the LLM prompt.
       #
       # @param node [LLM::Node]

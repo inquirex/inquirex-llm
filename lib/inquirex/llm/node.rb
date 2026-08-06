@@ -8,9 +8,13 @@ module Inquirex
     #
     # LLM verbs:
     #   :extract   — extract structured data from a free-text answer
+    #   :summarize — close the flow with a prose summary of the whole session
     #   # :describe  — generate natural-language text from structured data
-    #   # :summarize — produce a summary of all or selected answers
     #   # :detour    — dynamically generate follow-up questions based on an answer
+    #
+    # `summarize` is the one verb whose prompt the gem owns ({Prompts::SUMMARIZE})
+    # and whose answer is markdown prose rather than structured data. It must be
+    # the last step in a flow and carries no schema and no transitions.
     #
     # All LLM nodes are collecting (they produce answers) and require server
     # round-trips. The frontend shows a "thinking" state while the server processes.
@@ -24,8 +28,12 @@ module Inquirex
     # @attr_reader max_tokens [Integer, nil] optional max output tokens
     # @attr_reader fallback [Proc, nil] server-side fallback (stripped from JSON)
     class Node < Inquirex::Node
-      LLM_VERBS = %i[extract].freeze
+      LLM_VERBS = %i[extract summarize].freeze
       # LLM_VERBS = %i[extract describe summarize detour].freeze
+
+      # Verbs whose result is prose for the user to read, not data for the
+      # engine to store against other steps.
+      NARRATIVE_VERBS = %i[summarize].freeze
 
       attr_reader :prompt,
         :schema,
@@ -58,6 +66,13 @@ module Inquirex
 
       # Whether this is an LLM-powered step requiring server processing.
       def llm_verb? = true
+
+      # Whether this step closes the flow with prose for the user to read.
+      # Narrative steps carry no schema and no transitions.
+      def narrative? = NARRATIVE_VERBS.include?(@verb)
+
+      # Whether this is the `summarize` step.
+      def summarize? = @verb == :summarize
 
       # Serializes to a plain Hash. LLM metadata is nested under "llm".
       # Fallback procs are stripped (server-side only).
