@@ -29,6 +29,12 @@ module Inquirex
       DEFAULT_MODEL = "claude-sonnet-4-20250514"
       DEFAULT_MAX_TOKENS = 2048
 
+      # Summaries want a little more room than an extraction (prose, not a
+      # handful of fields) and a little more warmth than one (0.2 produces
+      # summaries that read like a database dump).
+      DEFAULT_SUMMARY_MAX_TOKENS = 4096
+      DEFAULT_SUMMARY_TEMPERATURE = 0.4
+
       # Maps Inquirex short model symbols to concrete Anthropic model ids.
       MODEL_MAP = {
         claude_sonnet: "claude-sonnet-4-20250514",
@@ -68,6 +74,29 @@ module Inquirex
         result = normalize_output(node, parse_response(response))
         validate_output!(node, result)
         result
+      end
+
+      # Generates the closing summary for a `summarize` step.
+      #
+      # The system prompt is {Prompts::SUMMARIZE} — the node's own prompt is
+      # that same constant, but reading it from the constant means a node
+      # forged by hand or deserialized from a tampered definition still cannot
+      # substitute its own instructions.
+      #
+      # @param node [Inquirex::LLM::Node] the summarize step
+      # @param transcript [String] the session transcript
+      # @param answers [Hash] unused; accepted for interface symmetry
+      # @return [String] markdown summary
+      # @raise [Errors::AdapterError] on API / parse failures
+      def summarize(node, transcript, _answers = {})
+        response = call_api(
+          model:       resolve_model(node),
+          system:      Prompts::SUMMARIZE,
+          user:        summary_input(transcript),
+          temperature: node.respond_to?(:temperature) ? (node.temperature || DEFAULT_SUMMARY_TEMPERATURE) : DEFAULT_SUMMARY_TEMPERATURE,
+          max_tokens:  node.respond_to?(:max_tokens) ? (node.max_tokens || DEFAULT_SUMMARY_MAX_TOKENS) : DEFAULT_SUMMARY_MAX_TOKENS
+        )
+        parse_text_response(response)
       end
 
       private
@@ -147,12 +176,34 @@ module Inquirex
         JSON.parse(response.body)
       end
 
-      def parse_response(api_response)
+      # The response's text content, with the model's habitual wrapping fence
+      # removed. Unlike {#parse_response} it stays a String: a summary is
+      # markdown for a human, not JSON for the engine.
+      #
+      # @param api_response [Hash]
+      # @return [String]
+      # @raise [Errors::AdapterError] when the response carries no text, or
+      #   the model returned nothing usable
+      def parse_text_response(api_response)
+        text = response_text(api_response)
+        text = text.gsub(/\A```(?:markdown|md)?\s*\n?/, "").gsub(/\n?```\s*\z/, "").strip
+        raise Errors::AdapterError, "Anthropic returned an empty summary" if text.empty?
+
+        text
+      end
+
+      # @return [String] the first text block's content
+      # @raise [Errors::AdapterError] when there is none
+      def response_text(api_response)
         content    = api_response["content"]
         text_block = content.is_a?(Array) ? content.find { |c| c["type"] == "text" } : nil
         raise Errors::AdapterError, "No text content in Anthropic response" unless text_block
 
-        raw_text = text_block["text"].to_s.strip
+        text_block["text"].to_s.strip
+      end
+
+      def parse_response(api_response)
+        raw_text = response_text(api_response)
         raw_text = raw_text.gsub(/\A```(?:json)?\s*\n?/, "").gsub(/\n?```\s*\z/, "").strip
 
         parsed = JSON.parse(raw_text, symbolize_names: true)

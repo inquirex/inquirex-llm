@@ -15,6 +15,10 @@ module Inquirex
       # so that schema question references can resolve forward to questions
       # defined after the LLM step.
       module FlowBuilderExtension
+        # Accumulator added when a flow declares `summarize` without declaring
+        # anywhere for the narrative to accumulate.
+        TRANSCRIPT_ACCUMULATOR = :transcript
+
         # Defines an LLM extraction step: takes free-text input and produces
         # structured data matching the declared schema.
         #
@@ -33,13 +37,27 @@ module Inquirex
         #   add_llm_step(id, :describe, &)
         # end
 
-        # # Defines an LLM summarization step: takes all or selected answers and
-        # # produces a textual summary.
-        # #
-        # # @param id [Symbol] step id
-        # def summarize(id, &)
-        #   add_llm_step(id, :summarize, &)
-        # end
+        # Closes the flow with a prose summary of the whole session.
+        #
+        # Takes no prompt (the gem owns it — see {Prompts::SUMMARIZE}), no
+        # schema, and no `from`: its input is always the session transcript,
+        # and its output is markdown for the user to read, keep, and print.
+        # It must be the last step declared in the flow, and a flow may
+        # declare only one.
+        #
+        # Declaring it also guarantees the flow has somewhere to summarise
+        # *from*: if no `:text` accumulator was declared, a `:transcript` one
+        # is added automatically.
+        #
+        # @example
+        #   summarize :wrap_up do
+        #     temperature 0.4
+        #   end
+        #
+        # @param id [Symbol] step id
+        def summarize(id, &)
+          add_llm_step(id, :summarize, &)
+        end
 
         # # Defines an LLM detour step: based on an answer, dynamically generates
         # # follow-up questions. The server adapter handles presenting the generated
@@ -53,11 +71,66 @@ module Inquirex
         # Builds any deferred LLM steps (now that the full node map exists),
         # then produces the frozen Definition via the core builder.
         def build
+          validate_summarize_placement!
+          ensure_transcript_accumulator!
           resolve_llm_steps!
           super
         end
 
         private
+
+        # @return [Array<Symbol>] ids of the flow's summarize steps, in
+        #   declaration order
+        def summarize_step_ids
+          @nodes.filter_map { |id, entry| id if summarize_entry?(entry) }
+        end
+
+        # True for a parked LlmStepBuilder or an already-built node whose verb
+        # is :summarize.
+        def summarize_entry?(entry)
+          entry.respond_to?(:verb) ? entry.verb.to_sym == :summarize : entry.instance_variable_get(:@verb) == :summarize
+        end
+
+        # `summarize` closes the flow, so it has to be the last step declared
+        # and there can only be one. Checked here rather than in the step
+        # builder because only the flow builder knows the declaration order —
+        # the step builder sees one step at a time.
+        #
+        # @raise [Errors::DefinitionError]
+        def validate_summarize_placement!
+          ids = summarize_step_ids
+          return if ids.empty?
+
+          if ids.length > 1
+            raise Errors::DefinitionError,
+              "flow declares #{ids.length} summarize steps (#{ids.map(&:inspect).join(", ")}) — " \
+              "a flow may close with only one"
+          end
+
+          last_id = @nodes.keys.last
+          return if ids.first == last_id
+
+          raise Errors::DefinitionError,
+            "summarize step #{ids.first.inspect} is followed by #{last_id.inspect} — " \
+            "summarize must be the last step declared in the flow"
+        end
+
+        # Guarantees a `summarize` flow has a narrative to summarise. A flow
+        # that mostly explains things collects almost no answers, so without a
+        # text accumulator there would be nothing to send the model but an
+        # empty hash.
+        def ensure_transcript_accumulator!
+          return if summarize_step_ids.empty?
+          return if @accumulators.any? { |_, acc| text_accumulator?(acc) }
+
+          accumulator(TRANSCRIPT_ACCUMULATOR, type: :text)
+        end
+
+        # `Accumulator#text?` arrived with text accumulators; fall back to the
+        # type for the older core versions this gem still supports.
+        def text_accumulator?(acc)
+          acc.respond_to?(:text?) ? acc.text? : acc.type.to_sym == :text
+        end
 
         # Evaluates the step block immediately (same as core FlowBuilder#add_step)
         # but parks the builder in the node map instead of building the node.

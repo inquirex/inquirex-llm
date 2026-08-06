@@ -154,14 +154,12 @@ RSpec.describe Inquirex::LLM::Node do
       expect(described_class.llm_verb?(:extract)).to be true
     end
 
-    # it "recognizes all four LLM verbs" do
-    #   %i[extract describe summarize detour].each do |verb|
-    #     expect(described_class.llm_verb?(verb)).to be true
-    #   end
-    # end
+    it "recognizes summarize" do
+      expect(described_class.llm_verb?(:summarize)).to be true
+    end
 
-    it "rejects core verbs and parked LLM verbs" do
-      %i[ask say header confirm describe summarize detour].each do |verb|
+    it "rejects core verbs and still-parked LLM verbs" do
+      %i[ask say header confirm describe detour].each do |verb|
         expect(described_class.llm_verb?(verb)).to be false
       end
     end
