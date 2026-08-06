@@ -4,7 +4,7 @@
 
 LLM integration verbs for the [Inquirex](https://github.com/inquirex/inquirex) questionnaire engine.
 
-Extends the core DSL with a server-side `extract` verb (alias: `clarify`) that turns free-text answers into structured data via LLM processing. Ships with a pluggable adapter interface and a `NullAdapter` for testing. (`describe`, `summarize`, and `detour` are temporarily parked.)
+Extends the core DSL with two server-side verbs: `extract` (alias: `clarify`), which turns free-text answers into structured data, and `summarize`, which closes a flow with a prose summary of the whole session. Ships with a pluggable adapter interface and a `NullAdapter` for testing. (`describe` and `detour` are temporarily parked.)
 
 `inquirex` is a pure Ruby, declarative, rules-driven questionnaire engine for building conditional intake forms, qualification wizards, and branching surveys.
 
@@ -60,6 +60,18 @@ end
 
 All core verbs (`ask`, `say`, `header`, `btw`, `warning`, `confirm`) and widget hints work alongside LLM verbs in the same `Inquirex.define` block.
 
+### Loading stored flows
+
+Since inquirex 0.7.0, `Inquirex.load_dsl` validates source against a **default-deny** allowlist before evaluating it — a word nobody declared is a violation, not an oversight. Requiring this gem registers its own vocabulary (`extract`, `clarify`, `summarize`, and the methods legal inside their blocks), so a flow stored in a database or authored in a visual builder loads normally:
+
+```ruby
+Inquirex.load_dsl(customer.flow_dsl)   # validates, then evaluates
+```
+
+`fallback` is the one deliberate exception: it takes a Ruby block, which is exactly what static validation cannot vet, so it is excluded from the allowlist rather than permitted. Flows that need it must be loaded from your own source with `unsafe: true`.
+
+Registration is skipped on inquirex versions predating the allowlist, so the gem still works against them.
+
 ## Currently Supported LLM Verbs
 
 ### `extract` (alias: `clarify`)
@@ -77,6 +89,58 @@ extract :business_extracted do
   transition to: :next_step
 end
 ```
+
+### `summarize`
+
+Closes a flow with a multi-paragraph prose summary of the whole session, written for the user to read and keep.
+
+```ruby
+Inquirex.define id: "depreciation-help" do
+  start :intro
+
+  say(:intro) { text "Depreciation spreads an asset's cost over its useful life."; transition to: :asset }
+  ask(:asset) { type :enum; question "What kind of asset?"; options vehicle: "A vehicle", building: "A building" }
+
+  summarize :wrap_up do
+    temperature 0.4
+  end
+end
+```
+
+Two things make it different from every other verb.
+
+**It reads the transcript, not the answers.** The core gem's [text accumulators](https://github.com/inquirex/inquirex#text-accumulators-the-session-transcript) record everything the user was shown and every answer they gave. That is what `summarize` is given. It matters because a flow that mostly *explains* things — a help widget, an explainer — collects almost no answers, so a summary built from the answers hash would have nothing to say. Declaring `summarize` adds a `:transcript` accumulator automatically if the flow declares no text accumulator of its own.
+
+**The gem owns the prompt.** `Inquirex::LLM::Prompts::SUMMARIZE` is a constant, and adapters read it from there rather than from `node.prompt`. A flow author who could replace it could make the summary assert things the session never established, over a signature that still reads as the application's own words — so `prompt` is rejected at definition time rather than ignored at runtime, and a hand-forged or tampered node cannot substitute its own instructions either.
+
+The prompt constrains the model to what the transcript establishes, and to the markdown subset a renderer can lay out and print: headings, lists, blockquotes, emphasis, inline code, and fenced code blocks.
+
+#### What it refuses, and why
+
+| Rejected                                    | Because                                      |
+| ------------------------------------------- | -------------------------------------------- |
+| `prompt`                                    | its prompt is owned by the gem               |
+| `schema`                                    | it returns prose, not fields                 |
+| `from` / `from_all`                         | it always reads the whole session transcript |
+| a transition, or any step declared after it | it must be the last step in the flow         |
+| a second `summarize` step                   | a flow may close with only one               |
+
+Each raises `Errors::DefinitionError` naming the reason.
+
+`temperature`, `model`, and `max_tokens` remain available: they change how the summary is generated, not what it is allowed to say.
+
+#### Calling it
+
+`summarize` uses its own adapter method, because nothing about the call resembles an extraction — the prompt is the gem's, the input is the transcript, and the result is a markdown `String` rather than a schema-shaped `Hash`:
+
+```ruby
+adapter = Inquirex::LLM::AnthropicAdapter.new(api_key: ENV["ANTHROPIC_API_KEY"])
+markdown = adapter.summarize(engine.current_step, engine.text(:transcript))
+```
+
+An adapter that implements only `#call` keeps working for `extract` and raises `NotImplementedError` the first time a flow asks it to summarize — loudly, rather than returning something that looks like a summary and is not. An empty transcript raises `Errors::AdapterError` rather than asking a model to invent one.
+
+The [inquirex-widget](https://github.com/inquirex/inquirex-widget) renders the result with **Close** and **Print** buttons; markdown is sanitized against a strict element allowlist before it reaches the page.
 
 ## Schema: Question References (preferred)
 
@@ -130,19 +194,21 @@ Write the prompt by hand when you need domain framing the questions don't carry 
 
 ## DSL Methods (inside LLM verb blocks)
 
-| Method                          | Purpose                                              | Required                      |
-| ------------------------------- | ---------------------------------------------------- | ----------------------------- |
-| `prompt "..."` / `prompt :auto` | LLM prompt template, or generated from question refs | Always                        |
-| `schema :question_id, ...`      | Fields resolved from questions (types + options)     | `extract` (this or keywords)  |
-| `schema key: :type, ...`        | Explicit field => type pairs                         | `extract` (this or refs)      |
-| `from :step_id`                 | Source step(s) whose answers feed the LLM            | `extract` (or use `from_all`) |
-| `from_all`                      | Pass all collected answers to the LLM                | Alternative to `from`         |
-| `model :claude_sonnet`          | Optional model hint for the adapter                  | No                            |
-| `temperature 0.3`               | Optional sampling temperature                        | No                            |
-| `max_tokens 1024`               | Optional max output tokens                           | No                            |
-| `fallback { \|answers\| ... }`  | Server-side fallback (stripped from JSON)            | No                            |
-| `transition to: :step`          | Conditional transition (same as core)                | No                            |
-| `skip_if rule`                  | Skip step when condition is true                     | No                            |
+| Method                          | Purpose                                              | Required                                                   |
+| ------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------- |
+| `prompt "..."` / `prompt :auto` | LLM prompt template, or generated from question refs | `extract`; **rejected** on `summarize`                     |
+| `schema :question_id, ...`      | Fields resolved from questions (types + options)     | `extract` (this or keywords); **rejected** on `summarize`  |
+| `schema key: :type, ...`        | Explicit field => type pairs                         | `extract` (this or refs); **rejected** on `summarize`      |
+| `from :step_id`                 | Source step(s) whose answers feed the LLM            | `extract` (or use `from_all`); **rejected** on `summarize` |
+| `from_all`                      | Pass all collected answers to the LLM                | Alternative to `from`; **rejected** on `summarize`         |
+| `model :claude_sonnet`          | Optional model hint for the adapter                  | No                                                         |
+| `temperature 0.3`               | Optional sampling temperature                        | No                                                         |
+| `max_tokens 1024`               | Optional max output tokens                           | No                                                         |
+| `fallback { \|answers\| ... }`  | Server-side fallback (stripped from JSON)            | No                                                         |
+| `transition to: :step`          | Conditional transition (same as core)                | No; **rejected** on `summarize`                            |
+| `skip_if rule`                  | Skip step when condition is true                     | No                                                         |
+
+`summarize` rejects the content-shaping methods rather than ignoring them — see [`summarize`](#summarize) for each refusal and its reason.
 
 ## Engine Integration
 
@@ -328,18 +394,6 @@ describe :business_narrative do
 end
 ```
 
-### `summarize`
-
-Produce a summary of all or selected answers. Use `from_all` to pass everything, or `from` to select specific steps.
-
-```ruby
-summarize :intake_summary do
-  from_all
-  prompt "Summarize this client's tax situation."
-  transition to: :review
-end
-```
-
 ### `detour` (parked)
 
 Dynamically generate follow-up questions based on an answer. The server adapter handles presenting the generated questions and collecting responses. Requires `from`, `prompt`, and `schema`.
@@ -352,8 +406,6 @@ detour :followup do
   transition to: :next_step
 end
 ```
-
-## 
 
 ## Development
 
