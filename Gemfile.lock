@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    inquirex-llm (0.9.5)
+    inquirex-llm (0.9.6)
       inquirex (~> 0.6)
 
 GEM
@@ -113,7 +113,7 @@ CHECKSUMS
   diff-lcs (1.6.2) sha256=9ae0d2cba7d4df3075fe8cd8602a8604993efc0dfa934cff568969efb1909962
   erb (6.0.7) sha256=c5ca6dc25b0ef974a44dc8f59fe847577122483b1968a38dec305c60bf91ee92
   inquirex (0.9.4) sha256=73b4ec434a6b26b8bf82f6c5cfc1f01ac8eeb97f517dd9ab80e6d31462c8981b
-  inquirex-llm (0.9.5)
+  inquirex-llm (0.9.6)
   io-console (0.8.2) sha256=d6e3ae7a7cc7574f4b8893b4fca2162e57a825b223a177b7afa236c5ef9814cc
   irb (1.18.0) sha256=de9454a0703a54704b9811a5ef31a60c86949fbf4013fcf244fabc7c775248e3
   json (2.21.2) sha256=1f1d3b7cf2b3ba1a69beca0bb6db13d5438b80bff3cd54cdaaa620b9b07c1c6a
