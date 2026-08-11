@@ -9,7 +9,6 @@ Extends the core DSL with two server-side verbs: `extract` (alias: `clarify`), w
 `inquirex` is a pure Ruby, declarative, rules-driven questionnaire engine for building conditional intake forms, qualification wizards, and branching surveys.
 
 > [!IMPORTANT]
->
 > Note that `inquirex-llm` is part of an entire ecosystem that contains:
 >
 > - [`inquirex`](https://github.com/inquirex/inquirex)
