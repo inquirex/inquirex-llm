@@ -2,10 +2,8 @@
 
 source "https://rubygems.org"
 
-# Specify your gem's dependencies in inquirex.gemspec
+# Specify your gem's dependencies in inquirex-llm.gemspec
 gemspec
-
-gem "inquirex", "~> 0.6"
 
 gem "irb"
 gem "rake"
@@ -14,6 +12,7 @@ gem "rspec"
 gem "simplecov"
 gem "rspec-its"
 
+gem "bundle-audit"
 gem "rubocop"
 gem "rubocop-rspec"
 gem "coverage-badge"
