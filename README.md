@@ -236,6 +236,53 @@ result = adapter.call(engine.current_step)
 # => { industry: "", employee_count: 0, revenue: 0.0 }
 ```
 
+## Configuration
+
+Model ids, the provider and its credentials are set in one place, `Inquirex::LLM.configuration`. Each setting is read from its environment variable when that variable is set and not blank, and otherwise takes the default below. The adapters fall back on it whenever no `api_key:` or `model:` is passed and a node sets no `max_tokens` or `temperature` of its own.
+
+| Variable                           | Setting               | Default                                                         |
+| ---------------------------------- | --------------------- | --------------------------------------------------------------- |
+| `INQUIREX_LLM_ADAPTER`             | `provider`            | auto-detect; else `anthropic`, `openai` or `null`               |
+| `ANTHROPIC_API_KEY`                | `anthropic_api_key`   | none                                                            |
+| `OPENAI_API_KEY`                   | `openai_api_key`      | none                                                            |
+| `INQUIREX_LLM_ANTHROPIC_MODEL`     | `anthropic_model`     | `Models::ANTHROPIC_DEFAULT` (`claude-sonnet-5-5`)               |
+| `INQUIREX_LLM_OPENAI_MODEL`        | `openai_model`        | `Models::OPENAI_DEFAULT` (`gpt-4o-mini`)                        |
+| `INQUIREX_LLM_MAX_TOKENS`          | `max_tokens`          | `2048`                                                          |
+| `INQUIREX_LLM_TEMPERATURE`         | `temperature`         | `0.2`                                                           |
+| `INQUIREX_LLM_SUMMARY_MAX_TOKENS`  | `summary_max_tokens`  | `4096`                                                          |
+| `INQUIREX_LLM_SUMMARY_TEMPERATURE` | `summary_temperature` | `0.4`                                                           |
+| `INQUIREX_DEBUG`                   | `debug`               | off; any non-blank value turns it on                            |
+| `TYPESAFE_API_KEY`                 | `typesafe_api_key`    | none; reserved for the upcoming Jev adapter                     |
+| `INQUIREX_LLM_JEV_MODEL`           | `jev_model`           | `jev-1.13.0`, unverified; reserved for the upcoming Jev adapter |
+
+An invalid value (an unknown provider, a token count that is not a positive integer, a temperature outside 0 to 2) raises `Inquirex::LLM::Errors::ConfigurationError` naming the variable. `to_h` and `inspect` print every `*_api_key` as `[REDACTED]`.
+
+ENV is read once, on first use. Code can override any setting afterwards; `nil` restores the default:
+
+```ruby
+Inquirex::LLM.configure do |c|
+  c.provider        = :anthropic
+  c.anthropic_model = "claude-opus-5-5"
+  c.max_tokens      = 4096
+end
+
+adapter = Inquirex::LLM.adapter            # built from the configuration
+Inquirex::LLM.reset_configuration!         # discard overrides and read ENV again
+```
+
+`Inquirex::LLM.adapter` picks the adapter, first match wins:
+
+| Condition                  | Adapter                        |
+| -------------------------- | ------------------------------ |
+| `provider` is `:null`      | `NullAdapter`                  |
+| `provider` is `:anthropic` | `AnthropicAdapter` (needs key) |
+| `provider` is `:openai`    | `OpenAIAdapter` (needs key)    |
+| `anthropic_api_key` is set | `AnthropicAdapter`             |
+| `openai_api_key` is set    | `OpenAIAdapter`                |
+| otherwise                  | `NullAdapter`                  |
+
+`TYPESAFE_API_KEY` never selects an adapter: there is no Jev adapter yet.
+
 ## Built-in Adapters
 
 | Class                                   | Provider  | API                                | Auth                      | Key env var         |
@@ -250,23 +297,22 @@ The Anthropic and OpenAI adapters use `net/http` (stdlib, no extra dependency), 
 ### AnthropicAdapter
 
 ```ruby
-adapter = Inquirex::LLM::AnthropicAdapter.new(
-  api_key: ENV["ANTHROPIC_API_KEY"],
-  model:   "claude-sonnet-5-5"   # or pass the short symbol in the DSL
+adapter = Inquirex::LLM::AnthropicAdapter.new   # key and model from the configuration
+adapter = Inquirex::LLM::AnthropicAdapter.new(  # or name them; arguments win
+  api_key: "sk-ant-...",
+  model:   "claude-opus-5-5"                    # or pass the short symbol in the DSL
 )
 ```
 
-The current model ids live in one constant, `AnthropicAdapter::MODELS`: `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`. The default is `claude-sonnet-5-5`. Recognized `model :symbol` values in the DSL: `:claude_sonnet`, `:claude_haiku`, `:claude_opus` and `:claude_fable`, each mapped to its family's id in `MODELS`. `:claude_fable` is Anthropic-only; the OpenAI adapter does not map it.
+The current model ids live in one constant, `Inquirex::LLM::Models::ANTHROPIC` (also reachable as `AnthropicAdapter::MODELS`): `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`. The default is `Models::ANTHROPIC_DEFAULT`, `claude-sonnet-5-5`, unless `INQUIREX_LLM_ANTHROPIC_MODEL` names another. Recognized `model :symbol` values in the DSL: `:claude_sonnet`, `:claude_haiku`, `:claude_opus` and `:claude_fable`, each mapped to its family's id in `MODELS`. `:claude_fable` is Anthropic-only; the OpenAI adapter does not map it.
 
 These models reject sampling parameters, so the adapter does not send `temperature` to them. A `temperature` in the DSL still reaches a model you name by an older id, such as `model: "claude-sonnet-4-6"`.
 
 ### OpenAIAdapter
 
 ```ruby
-adapter = Inquirex::LLM::OpenAIAdapter.new(
-  api_key: ENV["OPENAI_API_KEY"],
-  model:   "gpt-4o-mini"
-)
+adapter = Inquirex::LLM::OpenAIAdapter.new     # key and model from the configuration
+adapter = Inquirex::LLM::OpenAIAdapter.new(api_key: "sk-...", model: "gpt-4.1")
 ```
 
 Uses Chat Completions with `response_format: { type: "json_object" }` so the model is constrained to return valid JSON. Recognized DSL symbols: `:gpt_4o`, `:gpt_4o_mini`, `:gpt_4_1`, `:gpt_4_1_mini`. For cross-provider portability, the adapter also accepts the Claude symbols (`:claude_sonnet` → `gpt-4o` etc.) so a flow file that says `model :claude_sonnet` runs unchanged against either provider.
