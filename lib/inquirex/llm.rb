@@ -5,6 +5,8 @@ require "json"
 
 require_relative "llm/version"
 require_relative "llm/errors"
+require_relative "llm/models"
+require_relative "llm/configuration"
 require_relative "llm/prompts"
 require_relative "llm/schema"
 require_relative "llm/node"
@@ -39,6 +41,37 @@ module Inquirex
   #     say(:done) { text "Done!" }
   #   end
   module LLM
+    # Builds the adapter the configuration asks for. First match wins:
+    #
+    #   provider :null             → NullAdapter (forced offline)
+    #   provider :anthropic        → AnthropicAdapter (raises if no key)
+    #   provider :openai           → OpenAIAdapter (raises if no key)
+    #   anthropic_api_key is set   → AnthropicAdapter
+    #   openai_api_key is set      → OpenAIAdapter
+    #   otherwise                  → NullAdapter
+    #
+    # provider comes from INQUIREX_LLM_ADAPTER, the keys from
+    # ANTHROPIC_API_KEY and OPENAI_API_KEY, unless set through {configure}.
+    # TYPESAFE_API_KEY is never consulted: there is no Jev adapter yet.
+    #
+    # @return [Adapter]
+    # @raise [ArgumentError] when a forced provider has no key
+    def self.adapter
+      config = configuration
+      case config.provider
+      when :null      then NullAdapter.new
+      when :anthropic then AnthropicAdapter.new
+      when :openai    then OpenAIAdapter.new
+      else
+        if config.anthropic_api_key
+          AnthropicAdapter.new
+        elsif config.openai_api_key
+          OpenAIAdapter.new
+        else
+          NullAdapter.new
+        end
+      end
+    end
   end
 end
 

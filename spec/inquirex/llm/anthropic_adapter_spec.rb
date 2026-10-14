@@ -50,11 +50,7 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
     end
 
     context "with neither api_key nor env var" do
-      around do |ex|
-        prior = ENV.delete("ANTHROPIC_API_KEY")
-        ex.run
-        ENV["ANTHROPIC_API_KEY"] = prior if prior
-      end
+      around { |ex| with_env("ANTHROPIC_API_KEY" => nil) { ex.run } }
 
       it "raises ArgumentError" do
         expect { described_class.new }.to raise_error(ArgumentError, /ANTHROPIC_API_KEY/)
@@ -62,12 +58,7 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
     end
 
     context "with the env var set" do
-      around do |ex|
-        prior = ENV.fetch("ANTHROPIC_API_KEY", nil)
-        ENV["ANTHROPIC_API_KEY"] = "env-key"
-        ex.run
-        prior ? ENV["ANTHROPIC_API_KEY"] = prior : ENV.delete("ANTHROPIC_API_KEY")
-      end
+      around { |ex| with_env("ANTHROPIC_API_KEY" => "env-key") { ex.run } }
 
       it "does not raise" do
         expect { described_class.new }.not_to raise_error
@@ -76,25 +67,10 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
   end
 
   describe "model ids" do
-    it "lists only current ids, each once" do
-      expect(described_class::MODELS).to eq(%w[claude-fable-5-1 claude-opus-5-5 claude-sonnet-5-5 claude-haiku-5-5])
-    end
-
-    it "draws the default from MODELS" do
-      expect(described_class::MODELS).to include(described_class::DEFAULT_MODEL)
-    end
-
-    it "draws every alias value from MODELS" do
-      expect(described_class::MODEL_MAP.values).to all(satisfy { |id| described_class::MODELS.include?(id) })
-    end
-
-    it "keeps the short symbols flows already use" do
-      expect(described_class::MODEL_MAP).to include(
-        claude_sonnet: "claude-sonnet-5-5",
-        claude_haiku:  "claude-haiku-5-5",
-        claude_opus:   "claude-opus-5-5",
-        claude_fable:  "claude-fable-5-1"
-      )
+    it "reads its catalogue from Models" do
+      expect(described_class::MODELS).to equal(Inquirex::LLM::Models::ANTHROPIC)
+      expect(described_class::MODEL_MAP).to equal(Inquirex::LLM::Models::ANTHROPIC_ALIASES)
+      expect(described_class::DEFAULT_MODEL).to eq(Inquirex::LLM::Models::ANTHROPIC_DEFAULT)
     end
   end
 
@@ -104,7 +80,7 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
     describe "#resolve_model" do
       it "maps :claude_sonnet to the concrete model id" do
         expect(adapter.send(:resolve_model, extract_node))
-          .to eq("claude-sonnet-5-5")
+          .to eq(Inquirex::LLM::Models::ANTHROPIC_ALIASES.fetch(:claude_sonnet))
       end
 
       it "falls back to the default when the node has no model" do
@@ -246,7 +222,7 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
       expect(captured["x-api-key"]).to eq(api_key)
       expect(captured["anthropic-version"]).to eq(described_class::API_VERSION)
       body = JSON.parse(captured.body)
-      expect(body["model"]).to eq("claude-sonnet-5-5")
+      expect(body["model"]).to eq(Inquirex::LLM::Models::ANTHROPIC_ALIASES.fetch(:claude_sonnet))
       expect(body).not_to have_key("temperature")
       expect(body["max_tokens"]).to eq(1024)
       expect(body["messages"].first["role"]).to eq("user")
@@ -300,6 +276,54 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
       legacy.call(node, answers)
 
       expect(captured).to include("model" => "claude-legacy-model", "temperature" => 0.1)
+    end
+  end
+
+  describe "reading Inquirex::LLM.configuration" do
+    let(:http) { instance_double(Net::HTTP, :use_ssl= => nil, :read_timeout= => nil, :open_timeout= => nil) }
+
+    def reply
+      instance_double(Net::HTTPOK, is_a?: true, code: "200", body: JSON.generate("content" => [{ "type" => "text", "text" => '{"filing_status":"single","dependents":1}' }]))
+    end
+
+    def bare_node = Inquirex::LLM::Node.new(id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:tell_me])
+
+    before { allow(Net::HTTP).to receive(:new).and_return(http) }
+
+    def sent_body(adapter, node)
+      body = nil
+      allow(http).to receive(:request) do |req|
+        body = JSON.parse(req.body)
+        reply
+      end
+      adapter.call(node, answers)
+      body
+    end
+
+    it "takes key, model and max_tokens from the configuration" do
+      with_env("ANTHROPIC_API_KEY" => "cfg-key",
+        "INQUIREX_LLM_ANTHROPIC_MODEL" => "claude-haiku-5-5",
+        "INQUIREX_LLM_MAX_TOKENS" => "777") do
+        expect(sent_body(described_class.new, bare_node)).to include("model" => "claude-haiku-5-5", "max_tokens" => 777)
+      end
+    end
+
+    it "lets keyword arguments win over the configuration" do
+      Inquirex::LLM.configure { |c| c.anthropic_model = "claude-haiku-5-5" }
+      adapter = described_class.new(api_key: api_key, model: "claude-opus-5-5")
+      expect(sent_body(adapter, bare_node)["model"]).to eq("claude-opus-5-5")
+    end
+
+    it "accepts a key set through configure" do
+      with_env("ANTHROPIC_API_KEY" => nil) do
+        Inquirex::LLM.configure { |c| c.anthropic_api_key = "configured" }
+        expect { described_class.new }.not_to raise_error
+      end
+    end
+
+    it "logs the call when debug is on" do
+      Inquirex::LLM.configure { |c| c.debug = true }
+      expect { sent_body(described_class.new(api_key: api_key), bare_node) }.to output(/Calling/).to_stderr
     end
   end
 end

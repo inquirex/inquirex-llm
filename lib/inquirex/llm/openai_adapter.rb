@@ -4,6 +4,7 @@ require "net/http"
 require "uri"
 require "json"
 require "inquirex/llm/adapter"
+require "inquirex/llm/configuration"
 
 module Inquirex
   module LLM
@@ -14,42 +15,30 @@ module Inquirex
     # than prompt-only "please return JSON" approaches for structured extraction.
     #
     # Usage:
-    #   adapter = Inquirex::LLM::OpenAIAdapter.new(
-    #     api_key: ENV["OPENAI_API_KEY"],
-    #     model:   "gpt-4o-mini"
-    #   )
+    #   adapter = Inquirex::LLM::OpenAIAdapter.new  # key and model from Inquirex::LLM.configuration
+    #   adapter = Inquirex::LLM::OpenAIAdapter.new(api_key: "sk-...", model: "gpt-4.1")
     #   result = adapter.call(engine.current_step, engine.answers)
     class OpenAIAdapter < Adapter
       API_URL = "https://api.openai.com/v1/chat/completions"
-      DEFAULT_MODEL = "gpt-4o-mini"
-      DEFAULT_MAX_TOKENS = 2048
+      DEFAULT_MODEL = Models::OPENAI_DEFAULT
+      DEFAULT_MAX_TOKENS = Configuration::DEFAULT_MAX_TOKENS
+      DEFAULT_SUMMARY_MAX_TOKENS = Configuration::DEFAULT_SUMMARY_MAX_TOKENS
+      DEFAULT_SUMMARY_TEMPERATURE = Configuration::DEFAULT_SUMMARY_TEMPERATURE
 
-      # Summaries want more room than an extraction (prose, not a handful of
-      # fields) and more warmth than one (0.2 reads like a database dump).
-      DEFAULT_SUMMARY_MAX_TOKENS = 4096
-      DEFAULT_SUMMARY_TEMPERATURE = 0.4
+      # Maps Inquirex DSL model symbols to concrete OpenAI model ids,
+      # including OpenAI equivalents for the Claude symbols. Written in {Models}.
+      MODEL_MAP = Models::OPENAI_ALIASES
 
-      # Maps Inquirex DSL model symbols to concrete OpenAI model ids. Accepts
-      # Claude symbols too — we substitute sensible OpenAI equivalents so flow
-      # definitions written against Anthropic still run against this adapter.
-      MODEL_MAP = {
-        gpt_4o:        "gpt-4o",
-        gpt_4o_mini:   "gpt-4o-mini",
-        gpt_4_1:       "gpt-4.1",
-        gpt_4_1_mini:  "gpt-4.1-mini",
-        claude_sonnet: "gpt-4o",
-        claude_haiku:  "gpt-4o-mini",
-        claude_opus:   "gpt-4o"
-      }.freeze
-
-      # @param api_key [String, nil] defaults to ENV["OPENAI_API_KEY"]
-      # @param model   [String, nil] default model id when a node does not specify one
+      # @param api_key [String, nil] defaults to the configuration's openai_api_key (OPENAI_API_KEY)
+      # @param model   [String, nil] default model id when a node does not specify one;
+      #   defaults to the configuration's openai_model (INQUIREX_LLM_OPENAI_MODEL)
+      # @raise [ArgumentError] when no key is passed or configured
       def initialize(api_key: nil, model: nil)
         super()
-        @api_key = api_key || ENV.fetch("OPENAI_API_KEY") {
-          raise ArgumentError, "OPENAI_API_KEY is required (pass api_key: or set the env var)"
-        }
-        @default_model = model || DEFAULT_MODEL
+        @api_key = api_key || LLM.configuration.openai_api_key
+        raise ArgumentError, "OPENAI_API_KEY is required (pass api_key: or set the env var)" unless @api_key
+
+        @default_model = model || LLM.configuration.openai_model
       end
 
       # @param node [Inquirex::LLM::Node] the current LLM step
@@ -60,8 +49,8 @@ module Inquirex
       def call(node, answers = {})
         source      = source_answers(node, answers)
         model       = resolve_model(node)
-        temperature = node.respond_to?(:temperature) ? (node.temperature || 0.2) : 0.2
-        max_tokens  = node.respond_to?(:max_tokens)  ? (node.max_tokens  || DEFAULT_MAX_TOKENS) : DEFAULT_MAX_TOKENS
+        temperature = node.respond_to?(:temperature) ? (node.temperature || config.temperature) : config.temperature
+        max_tokens  = node.respond_to?(:max_tokens)  ? (node.max_tokens  || config.max_tokens) : config.max_tokens
 
         response = call_api(
           model:       model,
@@ -92,13 +81,19 @@ module Inquirex
           model:       resolve_model(node),
           system:      Prompts::SUMMARIZE,
           user:        summary_input(transcript),
-          temperature: node.respond_to?(:temperature) ? (node.temperature || DEFAULT_SUMMARY_TEMPERATURE) : DEFAULT_SUMMARY_TEMPERATURE,
-          max_tokens:  node.respond_to?(:max_tokens) ? (node.max_tokens || DEFAULT_SUMMARY_MAX_TOKENS) : DEFAULT_SUMMARY_MAX_TOKENS
+          temperature: node.respond_to?(:temperature) ? (node.temperature || config.summary_temperature) : config.summary_temperature,
+          max_tokens:  node.respond_to?(:max_tokens) ? (node.max_tokens || config.summary_max_tokens) : config.summary_max_tokens
         )
         parse_text_response(response)
       end
 
       private
+
+      # Read on every call rather than kept from #initialize, so limits set
+      # through Inquirex::LLM.configure after the adapter was built still apply.
+      #
+      # @return [Configuration]
+      def config = LLM.configuration
 
       def resolve_model(node)
         return @default_model unless node.respond_to?(:model) && node.model
@@ -169,7 +164,7 @@ module Inquirex
           ]
         )
 
-        warn "[inquirex-llm] Calling OpenAI #{model}..." if ENV["INQUIREX_DEBUG"]
+        warn "[inquirex-llm] Calling OpenAI #{model}..." if config.debug?
 
         response = http.request(request)
         unless response.is_a?(Net::HTTPSuccess)

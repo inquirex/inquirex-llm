@@ -50,11 +50,7 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
     end
 
     context "with neither api_key nor env var" do
-      around do |ex|
-        prior = ENV.delete("OPENAI_API_KEY")
-        ex.run
-        ENV["OPENAI_API_KEY"] = prior if prior
-      end
+      around { |ex| with_env("OPENAI_API_KEY" => nil) { ex.run } }
 
       it "raises ArgumentError" do
         expect { described_class.new }.to raise_error(ArgumentError, /OPENAI_API_KEY/)
@@ -222,6 +218,46 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
       allow(http).to receive(:request).and_return(ok('{"filing_status":"single"}'))
       expect { adapter.call(extract_node, answers) }
         .to raise_error(Inquirex::LLM::Errors::SchemaViolationError, /dependents/)
+    end
+  end
+
+  describe "reading Inquirex::LLM.configuration" do
+    let(:http) { instance_double(Net::HTTP, :use_ssl= => nil, :read_timeout= => nil, :open_timeout= => nil) }
+
+    def reply
+      instance_double(Net::HTTPOK,
+        is_a?: true,
+        code:  "200",
+        body:  JSON.generate("choices" => [{ "message" => { "content" => '{"filing_status":"single","dependents":1}' } }]))
+    end
+
+    def bare_node = Inquirex::LLM::Node.new(id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:tell_me])
+
+    before { allow(Net::HTTP).to receive(:new).and_return(http) }
+
+    def sent_body(adapter, node)
+      body = nil
+      allow(http).to receive(:request) do |req|
+        body = JSON.parse(req.body)
+        reply
+      end
+      adapter.call(node, answers)
+      body
+    end
+
+    it "takes key, model, max_tokens and temperature from the configuration" do
+      with_env("OPENAI_API_KEY" => "cfg-key",
+        "INQUIREX_LLM_OPENAI_MODEL" => "gpt-4.1",
+        "INQUIREX_LLM_MAX_TOKENS" => "777",
+        "INQUIREX_LLM_TEMPERATURE" => "0.5") do
+        expect(sent_body(described_class.new, bare_node))
+          .to include("model" => "gpt-4.1", "max_tokens" => 777, "temperature" => 0.5)
+      end
+    end
+
+    it "lets keyword arguments win over the configuration" do
+      Inquirex::LLM.configure { |c| c.openai_model = "gpt-4.1" }
+      expect(sent_body(described_class.new(api_key: api_key, model: "gpt-4o"), bare_node)["model"]).to eq("gpt-4o")
     end
   end
 end
