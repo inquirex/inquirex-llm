@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0 (unreleased)
+
+Hand-written until `github_changelog_generator` regenerates this file at release. The family-wide notes are in inquirex's `INQUIREX_VERSION_LOG.md`.
+
+- **Current Claude model ids.** `AnthropicAdapter::MODELS` lists `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`; the default (`claude-sonnet-5-5`) and the `:claude_sonnet`, `:claude_haiku`, `:claude_opus` and new `:claude_fable` aliases are looked up in it. 0.10.0 defaulted to `claude-sonnet-4-20250514`.
+- **No `temperature` for current models.** They answer any sampling parameter with HTTP 400, so the adapter omits it for ids in `MODELS` and still sends it to a model named by an older id.
+- **Requires `inquirex ~> 0.12`**, which declares `prism` as a runtime dependency and so loads on Ruby 4.1.
+- `spec/inquirex/llm/gemspec_spec.rb` fails when `lib/` requires a library that neither ships with the running Ruby nor is a declared runtime dependency.
+- CircleCI config copied from inquirex core; `.ruby-version` pins 4.1.0-preview1.
+
 ## [v0.10.0](https://github.com/inquirex/inquirex-llm/tree/v0.10.0) (2026-08-17)
 
 [Full Changelog](https://github.com/inquirex/inquirex-llm/compare/v0.8.0...v0.10.0)
