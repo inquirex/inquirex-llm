@@ -12,7 +12,7 @@ module Inquirex
     # Usage:
     #   adapter = Inquirex::LLM::AnthropicAdapter.new(
     #     api_key: ENV["ANTHROPIC_API_KEY"],
-    #     model:   "claude-sonnet-4-20250514"
+    #     model:   "claude-sonnet-5-5"
     #   )
     #   result = adapter.call(engine.current_step, engine.answers)
     #
@@ -26,7 +26,22 @@ module Inquirex
     class AnthropicAdapter < Adapter
       API_URL = "https://api.anthropic.com/v1/messages"
       API_VERSION = "2023-06-01"
-      DEFAULT_MODEL = "claude-sonnet-4-20250514"
+      # The current Claude model ids, and the only place they are written.
+      # The default and every short alias below are looked up here, so a
+      # model generation is retired in one edit instead of three that drift
+      # apart (0.10.0 still defaulted to a 4.x id after 5.x shipped).
+      MODELS = %w[
+        claude-fable-5-1
+        claude-opus-5-5
+        claude-sonnet-5-5
+        claude-haiku-5-5
+      ].freeze
+
+      # Maps Inquirex short model symbols to concrete Anthropic model ids,
+      # one per family: :claude_opus => "claude-opus-5-5", and so on.
+      MODEL_MAP = MODELS.to_h { |id| [:"claude_#{id.split("-")[1]}", id] }.freeze
+
+      DEFAULT_MODEL = MODEL_MAP.fetch(:claude_sonnet)
       DEFAULT_MAX_TOKENS = 2048
 
       # Summaries want a little more room than an extraction (prose, not a
@@ -34,13 +49,6 @@ module Inquirex
       # summaries that read like a database dump).
       DEFAULT_SUMMARY_MAX_TOKENS = 4096
       DEFAULT_SUMMARY_TEMPERATURE = 0.4
-
-      # Maps Inquirex short model symbols to concrete Anthropic model ids.
-      MODEL_MAP = {
-        claude_sonnet: "claude-sonnet-4-20250514",
-        claude_haiku:  "claude-haiku-4-5-20251001",
-        claude_opus:   "claude-opus-4-20250514"
-      }.freeze
 
       # @param api_key [String, nil] defaults to ENV["ANTHROPIC_API_KEY"]
       # @param model   [String, nil] default model id when a node does not specify one
@@ -107,6 +115,18 @@ module Inquirex
         MODEL_MAP[node.model.to_sym] || node.model.to_s
       end
 
+      # The models in {MODELS} reject sampling parameters: a request carrying
+      # `temperature` is answered with HTTP 400, whatever its value. The DSL's
+      # `temperature` is therefore sent only to an explicitly named older
+      # model that still accepts it.
+      #
+      # @param model [String] resolved model id
+      # @param temperature [Float]
+      # @return [Hash] `{}` or `{ temperature: }`
+      def sampling(model, temperature)
+        MODELS.include?(model) ? {} : { temperature: temperature }
+      end
+
       def build_system_prompt(node)
         "You are a data extraction assistant for a questionnaire engine. " \
         "Your job is to analyze user input and extract structured data." +
@@ -159,11 +179,11 @@ module Inquirex
         request["x-api-key"]         = @api_key
         request["anthropic-version"] = API_VERSION
         request.body = JSON.generate(
-          model:       model,
-          max_tokens:  max_tokens,
-          temperature: temperature,
-          system:      system,
-          messages:    [{ role: "user", content: user }]
+          model:      model,
+          max_tokens: max_tokens,
+          **sampling(model, temperature),
+          system:     system,
+          messages:   [{ role: "user", content: user }]
         )
 
         warn "[inquirex-llm] Calling #{model}..." if ENV["INQUIREX_DEBUG"]

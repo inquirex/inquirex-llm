@@ -252,11 +252,13 @@ The Anthropic and OpenAI adapters use `net/http` (stdlib, no extra dependency), 
 ```ruby
 adapter = Inquirex::LLM::AnthropicAdapter.new(
   api_key: ENV["ANTHROPIC_API_KEY"],
-  model:   "claude-sonnet-4-20250514"   # or pass the short symbol in the DSL
+  model:   "claude-sonnet-5-5"   # or pass the short symbol in the DSL
 )
 ```
 
-Recognized `model :symbol` values in the DSL: `:claude_sonnet`, `:claude_haiku`, `:claude_opus` (mapped to the current concrete model ids).
+The current model ids live in one constant, `AnthropicAdapter::MODELS`: `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`. The default is `claude-sonnet-5-5`. Recognized `model :symbol` values in the DSL: `:claude_sonnet`, `:claude_haiku`, `:claude_opus` and `:claude_fable`, each mapped to its family's id in `MODELS`. `:claude_fable` is Anthropic-only; the OpenAI adapter does not map it.
+
+These models reject sampling parameters, so the adapter does not send `temperature` to them. A `temperature` in the DSL still reaches a model you name by an older id, such as `model: "claude-sonnet-4-6"`.
 
 ### OpenAIAdapter
 

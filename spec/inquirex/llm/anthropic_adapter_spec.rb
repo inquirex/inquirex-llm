@@ -75,13 +75,36 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
     end
   end
 
+  describe "model ids" do
+    it "lists only current ids, each once" do
+      expect(described_class::MODELS).to eq(%w[claude-fable-5-1 claude-opus-5-5 claude-sonnet-5-5 claude-haiku-5-5])
+    end
+
+    it "draws the default from MODELS" do
+      expect(described_class::MODELS).to include(described_class::DEFAULT_MODEL)
+    end
+
+    it "draws every alias value from MODELS" do
+      expect(described_class::MODEL_MAP.values).to all(satisfy { |id| described_class::MODELS.include?(id) })
+    end
+
+    it "keeps the short symbols flows already use" do
+      expect(described_class::MODEL_MAP).to include(
+        claude_sonnet: "claude-sonnet-5-5",
+        claude_haiku:  "claude-haiku-5-5",
+        claude_opus:   "claude-opus-5-5",
+        claude_fable:  "claude-fable-5-1"
+      )
+    end
+  end
+
   describe "private helpers" do
     subject(:adapter) { described_class.new(api_key: api_key) }
 
     describe "#resolve_model" do
       it "maps :claude_sonnet to the concrete model id" do
         expect(adapter.send(:resolve_model, extract_node))
-          .to eq("claude-sonnet-4-20250514")
+          .to eq("claude-sonnet-5-5")
       end
 
       it "falls back to the default when the node has no model" do
@@ -92,11 +115,11 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
       end
 
       it "honours the instance default_model override" do
-        custom = described_class.new(api_key: api_key, model: "claude-opus-4-20250514")
+        custom = described_class.new(api_key: api_key, model: "claude-opus-5-5")
         node = Inquirex::LLM::Node.new(
           id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:a]
         )
-        expect(custom.send(:resolve_model, node)).to eq("claude-opus-4-20250514")
+        expect(custom.send(:resolve_model, node)).to eq("claude-opus-5-5")
       end
     end
 
@@ -223,8 +246,8 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
       expect(captured["x-api-key"]).to eq(api_key)
       expect(captured["anthropic-version"]).to eq(described_class::API_VERSION)
       body = JSON.parse(captured.body)
-      expect(body["model"]).to eq("claude-sonnet-4-20250514")
-      expect(body["temperature"]).to eq(0.1)
+      expect(body["model"]).to eq("claude-sonnet-5-5")
+      expect(body).not_to have_key("temperature")
       expect(body["max_tokens"]).to eq(1024)
       expect(body["messages"].first["role"]).to eq("user")
       expect(body["system"]).to include("filing_status")
@@ -259,6 +282,24 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
       adapter.call(node, answers)
 
       expect(JSON.parse(captured.body)["max_tokens"]).to eq(described_class::DEFAULT_MAX_TOKENS)
+    end
+
+    # Current models answer any sampling parameter with HTTP 400; an older
+    # model named by id still takes the DSL's temperature.
+    it "sends temperature only to a model outside MODELS" do
+      legacy = described_class.new(api_key: api_key, model: "claude-legacy-model")
+      node = Inquirex::LLM::Node.new(
+        id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:tell_me], temperature: 0.1
+      )
+      captured = nil
+      allow(http).to receive(:request) do |req|
+        captured = JSON.parse(req.body)
+        ok("content" => [{ "type" => "text", "text" => '{"filing_status":"x","dependents":0}' }])
+      end
+
+      legacy.call(node, answers)
+
+      expect(captured).to include("model" => "claude-legacy-model", "temperature" => 0.1)
     end
   end
 end
