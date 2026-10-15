@@ -1,4 +1,12 @@
-# The models `extract-eval compare` pits against each other.
+# The extraction eval suite, run by agent-evals from the repository root:
+#
+#   bundle exec agent-evals cases          # the 20 cases, no calls
+#   bundle exec agent-evals verify         # schemas, inputs and expected answers, offline
+#   bundle exec agent-evals run -m openai/gpt-4o-mini
+#   bundle exec agent-evals compare -n     # the matrix below, call nothing
+#
+# The Ruby lives in the gem (lib/inquirex/llm/evals/), named by the three
+# keys below; this folder holds only this file and datasets/.
 #
 # Each entry under a vendor becomes "<vendor>/<model>", the OpenRouter id.
 # `effort` and `temperature` take one value or a list; a list expands into one
@@ -14,6 +22,15 @@
 # Experiments go to the project whose UUID is in BRAINTRUST_PROJECT_ID (.env);
 # this name is used only when that variable is unset, and is created if missing.
 project: inquirex-llm-extract
+
+# This suite extracts a whole schema from free text in one chat completion,
+# so every contender is a prompt model. TypeSafe's own typed-question API is
+# not listed here: it is Inquirex::LLM::JevAdapter's, measured on its own terms.
+request_types: [prompt]
+
+require: inquirex/llm/evals
+adapter: Inquirex::LLM::Evals::Adapter
+scorer: Inquirex::LLM::Evals::Scorer
 
 defaults:
   effort: default
@@ -38,8 +55,6 @@ vendors:
   meta-llama:
     - model: llama-3.3-70b-instruct
   typesafe:
-    - model: jev-router # Jev on OpenRouter; the gem's Models::JEV_DEFAULT ("jev-1.13.0") is a direct-API id
-  typesafe-api:
-    - model: jev-latest # Jev through TypeSafe's own API, one typed question per field (JevAdapter)
+    - model: jev-router # Jev on OpenRouter, as a chat model
   moonshotai:
     - model: kimi-k3

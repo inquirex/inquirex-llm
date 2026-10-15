@@ -485,6 +485,16 @@ detour :followup do
 end
 ```
 
+## Evals
+
+Which model extracts best, measured with this gem's own prompts: ten flows, a complete and a vague text each, run on [agent-evals](https://github.com/kigster/agent-evals). The lineup and the data live in [`evals/`](evals/README.md); the adapter and the scorer are `Inquirex::LLM::Evals`, loaded only by `require "inquirex/llm/evals"`.
+
+```bash
+bundle exec agent-evals cases       # the 20 cases
+bundle exec agent-evals verify      # offline checks
+bundle exec agent-evals compare -n  # the matrix, calling nothing
+```
+
 ## Development
 
 ```bash
