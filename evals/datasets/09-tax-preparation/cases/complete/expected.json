@@ -1,0 +1,10 @@
+{
+  "filing_status": "head_of_household",
+  "dependents": 2,
+  "self_employed": true,
+  "rental_properties": 1,
+  "sold_investments": true,
+  "owns_business_entity": false,
+  "multi_state": true,
+  "irs_letter": true
+}

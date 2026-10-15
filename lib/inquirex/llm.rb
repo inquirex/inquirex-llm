@@ -5,13 +5,19 @@ require "json"
 
 require_relative "llm/version"
 require_relative "llm/errors"
+require_relative "llm/models"
+require_relative "llm/configuration"
 require_relative "llm/prompts"
 require_relative "llm/schema"
 require_relative "llm/node"
+require_relative "llm/extraction"
 require_relative "llm/adapter"
 require_relative "llm/null_adapter"
 require_relative "llm/anthropic_adapter"
 require_relative "llm/openai_adapter"
+require_relative "llm/open_router_adapter"
+require_relative "llm/numbers"
+require_relative "llm/jev_adapter"
 require_relative "llm/dsl/llm_step_builder"
 require_relative "llm/dsl/flow_builder"
 require_relative "llm/safe_source"
@@ -39,6 +45,43 @@ module Inquirex
   #     say(:done) { text "Done!" }
   #   end
   module LLM
+    # Builds the adapter the configuration asks for. First match wins:
+    #
+    #   provider :null             → NullAdapter (forced offline)
+    #   provider :anthropic        → AnthropicAdapter (raises if no key)
+    #   provider :openai           → OpenAIAdapter (raises if no key)
+    #   provider :openrouter       → OpenRouterAdapter (raises if no key)
+    #   provider :jev              → JevAdapter (raises if no key; extract only)
+    #   anthropic_api_key is set   → AnthropicAdapter
+    #   openai_api_key is set      → OpenAIAdapter
+    #   otherwise                  → NullAdapter
+    #
+    # provider comes from INQUIREX_LLM_ADAPTER, the keys from
+    # ANTHROPIC_API_KEY and OPENAI_API_KEY, unless set through {configure}.
+    # OpenRouter and Jev are never auto-detected: a host that already has
+    # one of those keys for something else keeps the adapter it had, and
+    # Jev cannot summarize, so it must be asked for by name.
+    #
+    # @return [Adapter]
+    # @raise [ArgumentError] when a forced provider has no key
+    def self.adapter
+      config = configuration
+      case config.provider
+      when :null      then NullAdapter.new
+      when :anthropic then AnthropicAdapter.new
+      when :openai    then OpenAIAdapter.new
+      when :openrouter then OpenRouterAdapter.new
+      when :jev then JevAdapter.new
+      else
+        if config.anthropic_api_key
+          AnthropicAdapter.new
+        elsif config.openai_api_key
+          OpenAIAdapter.new
+        else
+          NullAdapter.new
+        end
+      end
+    end
   end
 end
 

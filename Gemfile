@@ -2,20 +2,26 @@
 
 source "https://rubygems.org"
 
-# Specify your gem's dependencies in inquirex.gemspec
+# Specify your gem's dependencies in inquirex-llm.gemspec
 gemspec
 
-gem "inquirex", "~> 0.6"
+group :development, :test do
+  gem "rake"
 
-gem "irb"
-gem "rake"
+  gem "rspec"
+  gem "simplecov"
+  gem "rspec-its"
 
-gem "rspec"
-gem "simplecov"
-gem "rspec-its"
+  gem "bundle-audit"
+  gem "rubocop"
+  gem "rubocop-rspec"
+  gem "coverage-badge"
 
-gem "rubocop"
-gem "rubocop-rspec"
-gem "coverage-badge"
+  gem "yard"
+end
 
-gem "yard"
+group :evals do
+  gem "agent-evals", "~> 0.1"
+  gem "braintrust", require: "braintrust/setup"
+  gem "ruby_llm", "= 2.1.1"
+end

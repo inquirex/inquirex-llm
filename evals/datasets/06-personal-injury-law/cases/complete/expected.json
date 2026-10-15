@@ -1,0 +1,13 @@
+{
+  "incident_type": "auto_accident",
+  "how_long_ago": "weeks",
+  "injury_type": "broken_bones",
+  "treated_by_doctor": true,
+  "still_treating": true,
+  "surgery_or_hospitalization": true,
+  "fault": "other_party",
+  "police_report": true,
+  "other_party_insured": "yes",
+  "missed_work": true,
+  "already_represented": false
+}

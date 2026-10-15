@@ -14,6 +14,10 @@ module Inquirex
 
       # Raised when the LLM adapter call fails after exhausting retries.
       class AdapterError < Error; end
+
+      # Raised when a configuration value, from ENV or a writer, is invalid.
+      # The message names the variable or attribute that carried it.
+      class ConfigurationError < Error; end
     end
   end
 end

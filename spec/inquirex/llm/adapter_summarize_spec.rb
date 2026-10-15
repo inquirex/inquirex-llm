@@ -79,7 +79,7 @@ RSpec.describe Inquirex::LLM::Adapter, "#summarize" do
 
       expect(captured["system"]).to eq(Inquirex::LLM::Prompts::SUMMARIZE)
       expect(captured["messages"].first["content"]).to include(transcript)
-      expect(captured["temperature"]).to eq(0.6)
+      expect(captured).not_to have_key("temperature")
     end
 
     it "ignores a prompt planted on the node and uses the constant" do
@@ -112,7 +112,7 @@ RSpec.describe Inquirex::LLM::Adapter, "#summarize" do
         .to raise_error(Inquirex::LLM::Errors::AdapterError, /empty summary/)
     end
 
-    it "defaults temperature and max_tokens to the summary values" do
+    it "defaults max_tokens to the summary value" do
       bare = Inquirex::LLM::Node.new(id: :wrap_up, verb: :summarize, prompt: Inquirex::LLM::Prompts::SUMMARIZE)
       captured = nil
       allow(http).to receive(:request) do |req|
@@ -122,8 +122,21 @@ RSpec.describe Inquirex::LLM::Adapter, "#summarize" do
 
       adapter.summarize(bare, transcript)
 
-      expect(captured["temperature"]).to eq(described_class::DEFAULT_SUMMARY_TEMPERATURE)
       expect(captured["max_tokens"]).to eq(described_class::DEFAULT_SUMMARY_MAX_TOKENS)
+    end
+
+    it "sends the summary temperature to an older model that accepts it" do
+      bare = Inquirex::LLM::Node.new(id: :wrap_up, verb: :summarize, prompt: Inquirex::LLM::Prompts::SUMMARIZE)
+      legacy = described_class.new(api_key: "test-key-xyz", model: "claude-legacy-model")
+      captured = nil
+      allow(http).to receive(:request) do |req|
+        captured = JSON.parse(req.body)
+        ok("Text.")
+      end
+
+      legacy.summarize(bare, transcript)
+
+      expect(captured["temperature"]).to eq(described_class::DEFAULT_SUMMARY_TEMPERATURE)
     end
   end
 

@@ -5,4 +5,8 @@ set -vx
 
 bundle install
 
+# The agent-evals CLI, on PATH outside bundle exec. --conservative skips the
+# download when an installed version already satisfies it.
+gem install agent-evals --conservative
+
 # Do any other automated setup that you need to do here

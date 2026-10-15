@@ -11,6 +11,7 @@ AllCops:
   Include:
     - '**/*.rb'
   Exclude:
+    - evals/datasets/**/*   # flows in the DSL's own style, and schema literals
 
 # Standard gem require alias — file must be named with a dash to match the gem name
 Naming/FileName:

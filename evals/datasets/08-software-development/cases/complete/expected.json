@@ -1,0 +1,32 @@
+{
+  "project_type": "mobile_app",
+  "brochure_features": [
+    "blog",
+    "lead_forms"
+  ],
+  "app_features": [
+    "dashboards",
+    "roles"
+  ],
+  "mobile_features": [
+    "offline",
+    "push",
+    "location"
+  ],
+  "integration_features": [
+    "crm_sync",
+    "webhooks"
+  ],
+  "user_accounts": true,
+  "payments": true,
+  "compliance": true,
+  "integrations": 3,
+  "platforms": [
+    "web",
+    "ios",
+    "android"
+  ],
+  "design_state": "rough",
+  "timeline": "rush",
+  "engagement": "ongoing"
+}

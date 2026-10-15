@@ -50,11 +50,7 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
     end
 
     context "with neither api_key nor env var" do
-      around do |ex|
-        prior = ENV.delete("ANTHROPIC_API_KEY")
-        ex.run
-        ENV["ANTHROPIC_API_KEY"] = prior if prior
-      end
+      around { |ex| with_env("ANTHROPIC_API_KEY" => nil) { ex.run } }
 
       it "raises ArgumentError" do
         expect { described_class.new }.to raise_error(ArgumentError, /ANTHROPIC_API_KEY/)
@@ -62,16 +58,19 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
     end
 
     context "with the env var set" do
-      around do |ex|
-        prior = ENV.fetch("ANTHROPIC_API_KEY", nil)
-        ENV["ANTHROPIC_API_KEY"] = "env-key"
-        ex.run
-        prior ? ENV["ANTHROPIC_API_KEY"] = prior : ENV.delete("ANTHROPIC_API_KEY")
-      end
+      around { |ex| with_env("ANTHROPIC_API_KEY" => "env-key") { ex.run } }
 
       it "does not raise" do
         expect { described_class.new }.not_to raise_error
       end
+    end
+  end
+
+  describe "model ids" do
+    it "reads its catalogue from Models" do
+      expect(described_class::MODELS).to equal(Inquirex::LLM::Models::ANTHROPIC)
+      expect(described_class::MODEL_MAP).to equal(Inquirex::LLM::Models::ANTHROPIC_ALIASES)
+      expect(described_class::DEFAULT_MODEL).to eq(Inquirex::LLM::Models::ANTHROPIC_DEFAULT)
     end
   end
 
@@ -81,7 +80,7 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
     describe "#resolve_model" do
       it "maps :claude_sonnet to the concrete model id" do
         expect(adapter.send(:resolve_model, extract_node))
-          .to eq("claude-sonnet-4-20250514")
+          .to eq(Inquirex::LLM::Models::ANTHROPIC_ALIASES.fetch(:claude_sonnet))
       end
 
       it "falls back to the default when the node has no model" do
@@ -92,11 +91,11 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
       end
 
       it "honours the instance default_model override" do
-        custom = described_class.new(api_key: api_key, model: "claude-opus-4-20250514")
+        custom = described_class.new(api_key: api_key, model: "claude-opus-5-5")
         node = Inquirex::LLM::Node.new(
           id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:a]
         )
-        expect(custom.send(:resolve_model, node)).to eq("claude-opus-4-20250514")
+        expect(custom.send(:resolve_model, node)).to eq("claude-opus-5-5")
       end
     end
 
@@ -106,6 +105,11 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
         expect(text).to include('"filing_status": "string"')
         expect(text).to include('"dependents": "integer"')
         expect(text).to include("No markdown fences")
+      end
+
+      it "asks for null, never a stand-in answer, when a value is missing" do
+        text = adapter.send(:build_system_prompt, extract_node)
+        expect(text).to include("use null").and include("Never use 0")
       end
 
       # it "emits the no-schema instruction for summarize" do
@@ -223,8 +227,8 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
       expect(captured["x-api-key"]).to eq(api_key)
       expect(captured["anthropic-version"]).to eq(described_class::API_VERSION)
       body = JSON.parse(captured.body)
-      expect(body["model"]).to eq("claude-sonnet-4-20250514")
-      expect(body["temperature"]).to eq(0.1)
+      expect(body["model"]).to eq(Inquirex::LLM::Models::ANTHROPIC_ALIASES.fetch(:claude_sonnet))
+      expect(body).not_to have_key("temperature")
       expect(body["max_tokens"]).to eq(1024)
       expect(body["messages"].first["role"]).to eq("user")
       expect(body["system"]).to include("filing_status")
@@ -259,6 +263,72 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
       adapter.call(node, answers)
 
       expect(JSON.parse(captured.body)["max_tokens"]).to eq(described_class::DEFAULT_MAX_TOKENS)
+    end
+
+    # Current models answer any sampling parameter with HTTP 400; an older
+    # model named by id still takes the DSL's temperature.
+    it "sends temperature only to a model outside MODELS" do
+      legacy = described_class.new(api_key: api_key, model: "claude-legacy-model")
+      node = Inquirex::LLM::Node.new(
+        id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:tell_me], temperature: 0.1
+      )
+      captured = nil
+      allow(http).to receive(:request) do |req|
+        captured = JSON.parse(req.body)
+        ok("content" => [{ "type" => "text", "text" => '{"filing_status":"x","dependents":0}' }])
+      end
+
+      legacy.call(node, answers)
+
+      expect(captured).to include("model" => "claude-legacy-model", "temperature" => 0.1)
+    end
+  end
+
+  describe "reading Inquirex::LLM.configuration" do
+    let(:http) { instance_double(Net::HTTP, :use_ssl= => nil, :read_timeout= => nil, :open_timeout= => nil) }
+
+    def reply
+      instance_double(Net::HTTPOK, is_a?: true, code: "200", body: JSON.generate("content" => [{ "type" => "text", "text" => '{"filing_status":"single","dependents":1}' }]))
+    end
+
+    def bare_node = Inquirex::LLM::Node.new(id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:tell_me])
+
+    before { allow(Net::HTTP).to receive(:new).and_return(http) }
+
+    def sent_body(adapter, node)
+      body = nil
+      allow(http).to receive(:request) do |req|
+        body = JSON.parse(req.body)
+        reply
+      end
+      adapter.call(node, answers)
+      body
+    end
+
+    it "takes key, model and max_tokens from the configuration" do
+      with_env("ANTHROPIC_API_KEY" => "cfg-key",
+        "INQUIREX_LLM_ANTHROPIC_MODEL" => "claude-haiku-5-5",
+        "INQUIREX_LLM_MAX_TOKENS" => "777") do
+        expect(sent_body(described_class.new, bare_node)).to include("model" => "claude-haiku-5-5", "max_tokens" => 777)
+      end
+    end
+
+    it "lets keyword arguments win over the configuration" do
+      Inquirex::LLM.configure { |c| c.anthropic_model = "claude-haiku-5-5" }
+      adapter = described_class.new(api_key: api_key, model: "claude-opus-5-5")
+      expect(sent_body(adapter, bare_node)["model"]).to eq("claude-opus-5-5")
+    end
+
+    it "accepts a key set through configure" do
+      with_env("ANTHROPIC_API_KEY" => nil) do
+        Inquirex::LLM.configure { |c| c.anthropic_api_key = "configured" }
+        expect { described_class.new }.not_to raise_error
+      end
+    end
+
+    it "logs the call when debug is on" do
+      Inquirex::LLM.configure { |c| c.debug = true }
+      expect { sent_body(described_class.new(api_key: api_key), bare_node) }.to output(/Calling/).to_stderr
     end
   end
 end

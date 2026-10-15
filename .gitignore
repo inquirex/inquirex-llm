@@ -13,3 +13,11 @@
 .rspec_status
 .env
 **/*.gem
+.env.*
+!.env.example
+!*.encrypted
+*.key
+*.pem
+*.private
+*.public
+/log/*

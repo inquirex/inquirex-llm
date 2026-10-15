@@ -128,6 +128,22 @@ module Inquirex
 
       protected
 
+      # The tokens a response reports, in one shape whatever the provider's:
+      # Anthropic counts input_tokens/output_tokens, OpenAI and OpenRouter
+      # prompt_tokens/completion_tokens, and OpenRouter adds the cost it
+      # billed. Empty when the response carries no usage at all.
+      #
+      # @param usage [Hash, nil] the response's "usage" object
+      # @return [Hash{Symbol => Numeric}] input_tokens, output_tokens, and cost_usd when reported
+      def usage_from(usage)
+        return {} unless usage.is_a?(Hash)
+
+        counts = usage.transform_keys(&:to_s)
+        { input_tokens:  (counts["input_tokens"] || counts["prompt_tokens"]).to_i,
+          output_tokens: (counts["output_tokens"] || counts["completion_tokens"]).to_i,
+          cost_usd:      counts["cost"]&.to_f }.compact
+      end
+
       # The canonical form value for a raw LLM answer, or nil when the answer
       # is outside the allowed list (after trimming and case-folding).
       #
@@ -164,6 +180,18 @@ module Inquirex
         "\nFor fields that declare \"values\", you MUST answer using ONLY values from that list — " \
           "return a single value for \"enum\" fields and an array of selected values for " \
           "\"multi_enum\" fields. Never invent a value outside the list."
+      end
+
+      # Prompt instruction for fields the source text does not answer. They
+      # must come back null: 0, "", false and [] are real answers (no
+      # dependents, not self-employed), and the engine prefills them and
+      # skips the question as though the user had said so.
+      #
+      # @return [String]
+      def missing_values_instruction
+        "Every key in the schema must be present in your output. When the source text does not " \
+          "provide a value, use null. Never use 0, \"\", false, or [] for a value that is missing: " \
+          "those are answers, and they would be recorded as what the user said."
       end
 
       # One human-readable line per schema field, used in user prompts:

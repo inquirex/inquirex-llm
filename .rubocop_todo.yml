@@ -12,7 +12,7 @@
 # AllowedIdentifiers: TLS1_1, TLS1_2, capture3, iso8601, rfc1123_date, rfc822, rfc2822, rfc3339, x86_64
 Naming/VariableNumber:
   Exclude:
-    - 'lib/inquirex/llm/openai_adapter.rb'
+    - 'lib/inquirex/llm/models.rb'
 
 # Offense count: 2
 # Configuration parameters: AllowSubject.

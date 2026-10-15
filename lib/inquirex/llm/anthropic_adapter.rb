@@ -4,16 +4,16 @@ require "net/http"
 require "uri"
 require "json"
 require "inquirex/llm/adapter"
+require "inquirex/llm/extraction"
+require "inquirex/llm/configuration"
 
 module Inquirex
   module LLM
     # Real Anthropic Claude adapter for inquirex-llm.
     #
     # Usage:
-    #   adapter = Inquirex::LLM::AnthropicAdapter.new(
-    #     api_key: ENV["ANTHROPIC_API_KEY"],
-    #     model:   "claude-sonnet-4-20250514"
-    #   )
+    #   adapter = Inquirex::LLM::AnthropicAdapter.new  # key and model from Inquirex::LLM.configuration
+    #   adapter = Inquirex::LLM::AnthropicAdapter.new(api_key: "sk-...", model: "claude-opus-5-5")
     #   result = adapter.call(engine.current_step, engine.answers)
     #
     # The adapter:
@@ -26,42 +26,38 @@ module Inquirex
     class AnthropicAdapter < Adapter
       API_URL = "https://api.anthropic.com/v1/messages"
       API_VERSION = "2023-06-01"
-      DEFAULT_MODEL = "claude-sonnet-4-20250514"
-      DEFAULT_MAX_TOKENS = 2048
+      # The current Claude model ids. Kept as aliases of {Models} so callers
+      # that read them here keep working; {Models} is where they are written.
+      MODELS = Models::ANTHROPIC
+      MODEL_MAP = Models::ANTHROPIC_ALIASES
+      DEFAULT_MODEL = Models::ANTHROPIC_DEFAULT
 
-      # Summaries want a little more room than an extraction (prose, not a
-      # handful of fields) and a little more warmth than one (0.2 produces
-      # summaries that read like a database dump).
-      DEFAULT_SUMMARY_MAX_TOKENS = 4096
-      DEFAULT_SUMMARY_TEMPERATURE = 0.4
+      DEFAULT_MAX_TOKENS = Configuration::DEFAULT_MAX_TOKENS
+      DEFAULT_SUMMARY_MAX_TOKENS = Configuration::DEFAULT_SUMMARY_MAX_TOKENS
+      DEFAULT_SUMMARY_TEMPERATURE = Configuration::DEFAULT_SUMMARY_TEMPERATURE
 
-      # Maps Inquirex short model symbols to concrete Anthropic model ids.
-      MODEL_MAP = {
-        claude_sonnet: "claude-sonnet-4-20250514",
-        claude_haiku:  "claude-haiku-4-5-20251001",
-        claude_opus:   "claude-opus-4-20250514"
-      }.freeze
-
-      # @param api_key [String, nil] defaults to ENV["ANTHROPIC_API_KEY"]
-      # @param model   [String, nil] default model id when a node does not specify one
+      # @param api_key [String, nil] defaults to the configuration's anthropic_api_key (ANTHROPIC_API_KEY)
+      # @param model   [String, nil] default model id when a node does not specify one;
+      #   defaults to the configuration's anthropic_model (INQUIREX_LLM_ANTHROPIC_MODEL)
+      # @raise [ArgumentError] when no key is passed or configured
       def initialize(api_key: nil, model: nil)
         super()
-        @api_key = api_key || ENV.fetch("ANTHROPIC_API_KEY") {
-          raise ArgumentError, "ANTHROPIC_API_KEY is required (pass api_key: or set the env var)"
-        }
-        @default_model = model || DEFAULT_MODEL
+        @api_key = api_key || LLM.configuration.anthropic_api_key
+        raise ArgumentError, "ANTHROPIC_API_KEY is required (pass api_key: or set the env var)" unless @api_key
+
+        @default_model = model || LLM.configuration.anthropic_model
       end
 
       # @param node [Inquirex::LLM::Node] the current LLM step
       # @param answers [Hash] all collected answers so far
-      # @return [Hash] structured data matching the node's schema
+      # @return [Extraction] the schema-shaped values, with the model's raw JSON and the usage
       # @raise [Errors::AdapterError] on API / parse failures
       # @raise [Errors::SchemaViolationError] when the LLM output misses schema fields
       def call(node, answers = {})
         source      = source_answers(node, answers)
         model       = resolve_model(node)
-        temperature = node.respond_to?(:temperature) ? (node.temperature || 0.2) : 0.2
-        max_tokens  = node.respond_to?(:max_tokens)  ? (node.max_tokens  || DEFAULT_MAX_TOKENS) : DEFAULT_MAX_TOKENS
+        temperature = node.respond_to?(:temperature) ? (node.temperature || config.temperature) : config.temperature
+        max_tokens  = node.respond_to?(:max_tokens)  ? (node.max_tokens  || config.max_tokens) : config.max_tokens
 
         response = call_api(
           model:       model,
@@ -71,7 +67,8 @@ module Inquirex
           max_tokens:  max_tokens
         )
 
-        result = normalize_output(node, parse_response(response))
+        raw = parse_response(response)
+        result = Extraction.new(output: normalize_output(node, raw), raw: raw, usage: usage_from(response["usage"]))
         validate_output!(node, result)
         result
       end
@@ -93,18 +90,36 @@ module Inquirex
           model:       resolve_model(node),
           system:      Prompts::SUMMARIZE,
           user:        summary_input(transcript),
-          temperature: node.respond_to?(:temperature) ? (node.temperature || DEFAULT_SUMMARY_TEMPERATURE) : DEFAULT_SUMMARY_TEMPERATURE,
-          max_tokens:  node.respond_to?(:max_tokens) ? (node.max_tokens || DEFAULT_SUMMARY_MAX_TOKENS) : DEFAULT_SUMMARY_MAX_TOKENS
+          temperature: node.respond_to?(:temperature) ? (node.temperature || config.summary_temperature) : config.summary_temperature,
+          max_tokens:  node.respond_to?(:max_tokens) ? (node.max_tokens || config.summary_max_tokens) : config.summary_max_tokens
         )
         parse_text_response(response)
       end
 
       private
 
+      # Read on every call rather than kept from #initialize, so limits set
+      # through Inquirex::LLM.configure after the adapter was built still apply.
+      #
+      # @return [Configuration]
+      def config = LLM.configuration
+
       def resolve_model(node)
         return @default_model unless node.respond_to?(:model) && node.model
 
         MODEL_MAP[node.model.to_sym] || node.model.to_s
+      end
+
+      # The models in {MODELS} reject sampling parameters: a request carrying
+      # `temperature` is answered with HTTP 400, whatever its value. The DSL's
+      # `temperature` is therefore sent only to an explicitly named older
+      # model that still accepts it.
+      #
+      # @param model [String] resolved model id
+      # @param temperature [Float]
+      # @return [Hash] `{}` or `{ temperature: }`
+      def sampling(model, temperature)
+        MODELS.include?(model) ? {} : { temperature: temperature }
       end
 
       def build_system_prompt(node)
@@ -118,6 +133,7 @@ module Inquirex
           "\n\nYou MUST respond with ONLY a valid JSON object matching this schema:\n" \
             "#{schema_contract_json(node.schema)}\n" \
             "#{values_instruction(node.schema)}\n\n" \
+            "#{missing_values_instruction}\n" \
             "Do not include any text before or after the JSON. No markdown fences. Just the raw JSON object."
         else
           "\n\nRespond with a valid JSON object containing your analysis. " \
@@ -159,14 +175,14 @@ module Inquirex
         request["x-api-key"]         = @api_key
         request["anthropic-version"] = API_VERSION
         request.body = JSON.generate(
-          model:       model,
-          max_tokens:  max_tokens,
-          temperature: temperature,
-          system:      system,
-          messages:    [{ role: "user", content: user }]
+          model:      model,
+          max_tokens: max_tokens,
+          **sampling(model, temperature),
+          system:     system,
+          messages:   [{ role: "user", content: user }]
         )
 
-        warn "[inquirex-llm] Calling #{model}..." if ENV["INQUIREX_DEBUG"]
+        warn "[inquirex-llm] Calling #{model}..." if config.debug?
 
         response = http.request(request)
         unless response.is_a?(Net::HTTPSuccess)

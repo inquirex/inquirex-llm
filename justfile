@@ -53,7 +53,20 @@ test *args:
 test-coverage *args:
     export ENVIRONMENT=test; export COVERAGE=true; {{ rbenv }} rspec {{ args }}
 
-check-all: install lint test-coverage 
+check-all: install lint test-coverage
+
+# Every model in evals/.agent-eval.config.yml against every dataset, through
+# agent-evals. Extra flags pass through: `just evals -n` shows the matrix and
+# calls nothing, `just evals --local` skips the remote tracker, `just evals -d
+# 05-managed-it-services` narrows to one dataset. Needs OPENROUTER_API_KEY.
+#
+# Run all extraction evals for every configured model
+evals *args: evals-verify
+    {{ rbenv }} agent-evals compare {{ args }}
+
+# Check schemas, inputs and expected answers offline, with no model calls
+evals-verify:
+    {{ rbenv }} agent-evals verify
 
 clean:
     #!/usr/bin/env bash
