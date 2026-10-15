@@ -131,6 +131,7 @@ module Inquirex
           "\n\nYou MUST respond with ONLY a valid JSON object matching this schema:\n" \
             "#{schema_contract_json(node.schema)}\n" \
             "#{values_instruction(node.schema)}\n\n" \
+            "#{missing_values_instruction}\n" \
             "Do not include any text before or after the JSON. No markdown fences. Just the raw JSON object."
         else
           "\n\nRespond with a valid JSON object containing your analysis. " \

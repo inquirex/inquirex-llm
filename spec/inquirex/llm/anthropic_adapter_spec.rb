@@ -107,6 +107,11 @@ RSpec.describe Inquirex::LLM::AnthropicAdapter do
         expect(text).to include("No markdown fences")
       end
 
+      it "asks for null, never a stand-in answer, when a value is missing" do
+        text = adapter.send(:build_system_prompt, extract_node)
+        expect(text).to include("use null").and include("Never use 0")
+      end
+
       # it "emits the no-schema instruction for summarize" do
       #   text = adapter.send(:build_system_prompt, summarize_node)
       #   expect(text).to include("valid JSON object containing your analysis")

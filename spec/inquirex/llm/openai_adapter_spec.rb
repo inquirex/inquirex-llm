@@ -85,6 +85,11 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
       expect(text).to include("JSON object")
     end
 
+    it "asks for null, never a stand-in answer, when a value is missing" do
+      text = adapter.send(:build_system_prompt, extract_node)
+      expect(text).to include("use null").and include("Never use 0")
+    end
+
     # it "does not include a schema block for summarize" do
     #   text = adapter.send(:build_system_prompt, summarize_node)
     #   expect(text).not_to include("MUST match this schema")

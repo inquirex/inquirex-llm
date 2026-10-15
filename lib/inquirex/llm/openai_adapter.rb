@@ -113,8 +113,7 @@ module Inquirex
           "\n\nThe JSON object MUST match this schema exactly (same keys, appropriate types):\n" \
             "#{schema_contract_json(node.schema)}\n" \
             "#{values_instruction(node.schema)}\n\n" \
-            "Every key in the schema must be present in your output. Use null, \"\", 0, or [] " \
-            "for values the source text does not provide."
+            "#{missing_values_instruction}"
         else
           ""
         end

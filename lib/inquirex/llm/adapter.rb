@@ -166,6 +166,18 @@ module Inquirex
           "\"multi_enum\" fields. Never invent a value outside the list."
       end
 
+      # Prompt instruction for fields the source text does not answer. They
+      # must come back null: 0, "", false and [] are real answers (no
+      # dependents, not self-employed), and the engine prefills them and
+      # skips the question as though the user had said so.
+      #
+      # @return [String]
+      def missing_values_instruction
+        "Every key in the schema must be present in your output. When the source text does not " \
+          "provide a value, use null. Never use 0, \"\", false, or [] for a value that is missing: " \
+          "those are answers, and they would be recorded as what the user said."
+      end
+
       # One human-readable line per schema field, used in user prompts:
       #   income_types (multi_enum: W2 | business | crypto)
       #   dependents (integer)
