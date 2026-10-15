@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    inquirex-llm (0.12.0)
+    inquirex-llm (0.12.1)
       inquirex (~> 0.12.1)
 
 GEM
@@ -264,7 +264,7 @@ CHECKSUMS
   google-protobuf (4.36.2) sha256=2f8daff50ae14aad36ab0ccdcf284065fa71d726c444efe114e6db82ffe62494
   googleapis-common-protos-types (1.23.0) sha256=992e740a523794d9fc5f29a504465d8fc737aaa16c930fe7228e3346860faf0a
   inquirex (0.12.1) sha256=ec9bda0f2de064935144c4ec258c81b939c6883dfbe3a58ef6a6568c909b075e
-  inquirex-llm (0.12.0)
+  inquirex-llm (0.12.1)
   json (3.1.0) sha256=3ce7ccf8fde58960177a3a756c31f292a4c1e1dedee884547096a5b0604e3bd8
   language_server-protocol (3.17.0.6) sha256=5ef2c0c138f8267e1bc631d3328347d354f96724b0af22f2c79516120443b7f0
   lint_roller (1.1.0) sha256=2c0c845b632a7d172cb849cc90c1bce937a28c5c8ccccb50dfd46a485003cc87
