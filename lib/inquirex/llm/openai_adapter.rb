@@ -142,8 +142,30 @@ module Inquirex
         parts.join("\n")
       end
 
+      # @return [String] the Chat Completions endpoint; subclasses point elsewhere
+      def api_url = self.class::API_URL
+
+      # @return [String] the provider's name, for errors and debug lines
+      def provider_name = "OpenAI"
+
+      # The request body. Subclasses add provider-specific fields here.
+      #
+      # @return [Hash]
+      def request_body(model:, system:, user:, temperature:, max_tokens:)
+        {
+          model:           model,
+          max_tokens:      max_tokens,
+          temperature:     temperature,
+          response_format: { type: "json_object" },
+          messages:        [
+            { role: "system", content: system },
+            { role: "user",   content: user }
+          ]
+        }
+      end
+
       def call_api(model:, system:, user:, temperature:, max_tokens:)
-        uri = URI(API_URL)
+        uri = URI(api_url)
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = true
         http.read_timeout = 30
@@ -153,21 +175,14 @@ module Inquirex
         request["Content-Type"]  = "application/json"
         request["Authorization"] = "Bearer #{@api_key}"
         request.body = JSON.generate(
-          model:           model,
-          max_tokens:      max_tokens,
-          temperature:     temperature,
-          response_format: { type: "json_object" },
-          messages:        [
-            { role: "system", content: system },
-            { role: "user",   content: user }
-          ]
+          request_body(model: model, system: system, user: user, temperature: temperature, max_tokens: max_tokens)
         )
 
-        warn "[inquirex-llm] Calling OpenAI #{model}..." if config.debug?
+        warn "[inquirex-llm] Calling #{provider_name} #{model}..." if config.debug?
 
         response = http.request(request)
         unless response.is_a?(Net::HTTPSuccess)
-          raise Errors::AdapterError, "OpenAI API error #{response.code}: #{response.body}"
+          raise Errors::AdapterError, "#{provider_name} API error #{response.code}: #{response.body}"
         end
 
         JSON.parse(response.body)
@@ -184,7 +199,7 @@ module Inquirex
       def parse_text_response(api_response)
         text = response_text(api_response)
         text = text.gsub(/\A```(?:markdown|md)?\s*\n?/, "").gsub(/\n?```\s*\z/, "").strip
-        raise Errors::AdapterError, "OpenAI returned an empty summary" if text.empty?
+        raise Errors::AdapterError, "#{provider_name} returned an empty summary" if text.empty?
 
         text
       end
@@ -195,7 +210,7 @@ module Inquirex
         choices = api_response["choices"]
         message = choices.is_a?(Array) ? choices.first&.dig("message") : nil
         raw_text = message&.dig("content")
-        raise Errors::AdapterError, "No message content in OpenAI response" unless raw_text
+        raise Errors::AdapterError, "No message content in #{provider_name} response" unless raw_text
 
         raw_text.to_s.strip
       end
