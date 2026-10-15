@@ -74,6 +74,11 @@ RSpec.describe Inquirex::LLM::OpenAIAdapter do
       node = Inquirex::LLM::Node.new(id: :x, verb: :extract, prompt: "p", schema: schema, from_steps: [:a])
       expect(adapter.send(:resolve_model, node)).to eq(described_class::DEFAULT_MODEL)
     end
+
+    it "reads a subclass's own MODEL_MAP, not OpenAI's" do
+      subclass = Class.new(described_class) { const_set(:MODEL_MAP, { claude_sonnet: "vendor/sonnet" }) }
+      expect(subclass.new(api_key: api_key).send(:resolve_model, extract_node)).to eq("vendor/sonnet")
+    end
   end
 
   describe "#build_system_prompt" do

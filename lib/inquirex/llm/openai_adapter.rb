@@ -98,7 +98,7 @@ module Inquirex
       def resolve_model(node)
         return @default_model unless node.respond_to?(:model) && node.model
 
-        MODEL_MAP[node.model.to_sym] || node.model.to_s
+        self.class::MODEL_MAP[node.model.to_sym] || node.model.to_s
       end
 
       def build_system_prompt(node)
