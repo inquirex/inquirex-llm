@@ -31,10 +31,11 @@ bundle exec agent-evals run -m openai/gpt-4o-mini          # one model, every da
 bundle exec agent-evals run -m anthropic/claude-haiku-5.5 -e low -d 05-managed-it-services
 bundle exec agent-evals compare                            # everything the lineup lists, leaderboard only
 bundle exec agent-evals compare -n                         # show that matrix, call nothing
-bundle exec agent-evals run --local -m google/gemini-2.5-flash   # score without Braintrust
+bundle exec agent-evals run --local -m google/gemini-2.5-flash   # no remote tracker
+just evals                                                 # verify, then compare the whole lineup
 ```
 
-Keys: `OPENROUTER_API_KEY` for every contender, `BRAINTRUST_API_KEY` and `BRAINTRUST_PROJECT_ID` unless `--local`. The repository's `.envrc` exports them from `.env.encrypted`.
+Keys: `OPENROUTER_API_KEY` for every contender. Results always go to `log/agent-evals/` as JSON. A remote tracker is optional and there is at most one: `BRAINTRUST_API_KEY` (plus `BRAINTRUST_PROJECT_ID`) selects Braintrust, `LOGFIRE_TOKEN` selects Logfire, and setting both is an error unless `--tracker braintrust|logfire` picks one. `--local` sends nothing. The repository's `.envrc` exports the keys from `.env.encrypted`.
 
 ## Scoring
 
