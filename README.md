@@ -274,16 +274,18 @@ Inquirex::LLM.reset_configuration!         # discard overrides and read ENV agai
 
 `Inquirex::LLM.adapter` picks the adapter, first match wins:
 
-| Condition                  | Adapter                        |
-| -------------------------- | ------------------------------ |
-| `provider` is `:null`      | `NullAdapter`                  |
-| `provider` is `:anthropic` | `AnthropicAdapter` (needs key) |
-| `provider` is `:openai`    | `OpenAIAdapter` (needs key)    |
-| `anthropic_api_key` is set | `AnthropicAdapter`             |
-| `openai_api_key` is set    | `OpenAIAdapter`                |
-| otherwise                  | `NullAdapter`                  |
+| Condition                   | Adapter                                      |
+| --------------------------- | -------------------------------------------- |
+| `provider` is `:null`       | `NullAdapter`                                |
+| `provider` is `:anthropic`  | `AnthropicAdapter` (needs key)               |
+| `provider` is `:openai`     | `OpenAIAdapter` (needs key)                  |
+| `provider` is `:openrouter` | `OpenRouterAdapter` (needs key)              |
+| `provider` is `:jev`        | `JevAdapter` (needs key; `extract` only)     |
+| `anthropic_api_key` is set  | `AnthropicAdapter`                           |
+| `openai_api_key` is set     | `OpenAIAdapter`                              |
+| otherwise                   | `NullAdapter`                                |
 
-`TYPESAFE_API_KEY` never selects an adapter: there is no Jev adapter yet.
+`OPENROUTER_API_KEY` and `TYPESAFE_API_KEY` never select an adapter on their own: a host that has one of those keys for something else keeps the adapter it had, and Jev cannot summarize, so both must be asked for by name.
 
 ## Built-in Adapters
 

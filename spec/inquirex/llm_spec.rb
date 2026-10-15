@@ -93,7 +93,9 @@ RSpec.describe Inquirex::LLM do
       { "TYPESAFE_API_KEY" => "k" }                                                                  => Inquirex::LLM::NullAdapter,
       { "OPENROUTER_API_KEY" => "k" }                                                                => Inquirex::LLM::NullAdapter,
       { "INQUIREX_LLM_ADAPTER" => "openrouter", "OPENROUTER_API_KEY" => "k" }                        =>
-                                                                                                        Inquirex::LLM::OpenRouterAdapter
+                                                                                                        Inquirex::LLM::OpenRouterAdapter,
+      { "INQUIREX_LLM_ADAPTER" => "jev", "TYPESAFE_API_KEY" => "k" }                                 =>
+                                                                                                        Inquirex::LLM::JevAdapter
     }.each do |vars, adapter_class|
       it "builds #{adapter_class.name.split("::").last} from #{vars.empty? ? "nothing" : vars.keys.join(", ")}" do
         with_env(clean.merge(vars)) do

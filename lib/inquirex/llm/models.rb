@@ -56,11 +56,12 @@ module Inquirex
       # The OpenRouter model used when nothing else names one.
       OPENROUTER_DEFAULT = OPENROUTER_ALIASES.fetch(:claude_sonnet)
 
-      # TypeSafe's Jev model, reserved for a Jev adapter that does not exist
-      # yet. This is the version the docs last recorded; it is UNVERIFIED
-      # against TypeSafe's live model list and must be confirmed before any
-      # adapter sends it.
-      JEV_DEFAULT = "jev-1.13.0"
+      # TypeSafe's Jev models, as GET /v1/models listed them on 2026-10-14.
+      # Responses report the concrete version behind the alias (jev-1.13.0).
+      JEV = %w[jev-latest jev-preview].freeze
+
+      # The Jev model used when nothing else names one.
+      JEV_DEFAULT = "jev-latest"
     end
   end
 end

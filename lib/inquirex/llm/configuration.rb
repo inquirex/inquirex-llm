@@ -28,7 +28,7 @@ module Inquirex
     #   end
     class Configuration
       # The providers {LLM.adapter} can build. nil means auto-detect.
-      PROVIDERS = %i[anthropic openai openrouter null].freeze
+      PROVIDERS = %i[anthropic openai openrouter jev null].freeze
 
       DEFAULT_MAX_TOKENS = 2048
       DEFAULT_TEMPERATURE = 0.2
@@ -56,13 +56,10 @@ module Inquirex
         anthropic_api_key:   Setting.new("ANTHROPIC_API_KEY", nil, :string),
         openai_api_key:      Setting.new("OPENAI_API_KEY", nil, :string),
         openrouter_api_key:  Setting.new("OPENROUTER_API_KEY", nil, :string),
-        # Reserved for the upcoming Jev adapter; nothing reads it yet, and
-        # auto-detection ignores it.
         typesafe_api_key:    Setting.new("TYPESAFE_API_KEY", nil, :string),
         anthropic_model:     Setting.new("INQUIREX_LLM_ANTHROPIC_MODEL", Models::ANTHROPIC_DEFAULT, :string),
         openai_model:        Setting.new("INQUIREX_LLM_OPENAI_MODEL", Models::OPENAI_DEFAULT, :string),
         openrouter_model:    Setting.new("INQUIREX_LLM_OPENROUTER_MODEL", Models::OPENROUTER_DEFAULT, :string),
-        # Reserved for the upcoming Jev adapter; see Models::JEV_DEFAULT.
         jev_model:           Setting.new("INQUIREX_LLM_JEV_MODEL", Models::JEV_DEFAULT, :string),
         max_tokens:          Setting.new("INQUIREX_LLM_MAX_TOKENS", DEFAULT_MAX_TOKENS, :positive_integer),
         temperature:         Setting.new("INQUIREX_LLM_TEMPERATURE", DEFAULT_TEMPERATURE, :temperature),

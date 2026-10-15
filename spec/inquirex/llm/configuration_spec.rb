@@ -77,7 +77,7 @@ RSpec.describe Inquirex::LLM::Configuration do
 
   describe "invalid ENV values" do
     {
-      "INQUIREX_LLM_ADAPTER"             => "jev",
+      "INQUIREX_LLM_ADAPTER"             => "gemini",
       "INQUIREX_LLM_MAX_TOKENS"          => "lots",
       "INQUIREX_LLM_SUMMARY_MAX_TOKENS"  => "0",
       "INQUIREX_LLM_TEMPERATURE"         => "warm",
@@ -89,9 +89,9 @@ RSpec.describe Inquirex::LLM::Configuration do
       end
     end
 
-    it "lists the accepted providers, and :jev is not one" do
-      expect { described_class.new("INQUIREX_LLM_ADAPTER" => "jev") }
-        .to raise_error(/one of anthropic, openai, openrouter, null/)
+    it "lists the accepted providers" do
+      expect { described_class.new("INQUIREX_LLM_ADAPTER" => "gemini") }
+        .to raise_error(/one of anthropic, openai, openrouter, jev, null/)
     end
   end
 
