@@ -21,8 +21,7 @@ group :development, :test do
 end
 
 group :evals do
+  gem "agent-evals", "~> 0.1"
   gem "braintrust", require: "braintrust/setup"
   gem "ruby_llm", "= 2.1.1"
 end
-
-

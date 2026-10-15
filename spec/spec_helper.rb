@@ -13,9 +13,7 @@ end
 
 SimpleCov.at_exit do
   SimpleCov.result.format!
-  # rubocop: disable RSpec/Output
-  puts "Coverage: #{SimpleCov.result.covered_percent.round(2)}%"
-  # rubocop: enable RSpec/Output
+  puts "Coverage: #{SimpleCov.result.covered_percent.round(2)}%" # rubocop:disable RSpec/Output
   FileUtils.mv("coverage/badge.svg", "docs/badges/coverage_badge.svg")
 end
 
