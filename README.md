@@ -228,6 +228,8 @@ engine.answer(result)
 # engine.current_step_id => :summary
 ```
 
+The built-in adapters return an `Inquirex::LLM::Extraction` for an `extract` step. It is the Hash above (a `Hash` subclass, so `prefill!`, `==` and JSON serialization see only the values) carrying two more things from the one LLM call that produced it: `raw`, the JSON exactly as the model sent it before enum values were canonicalized (`raw[:entity_type] # => "LLC"` where `result[:entity_type] # => "llc"`), and `usage`, the tokens and, when the provider reports it, the cost.
+
 For testing, use `NullAdapter` which returns schema-conformant placeholder values without any API calls:
 
 ```ruby
@@ -338,7 +340,8 @@ Any model OpenRouter hosts, with the OpenAI adapter's prompts and parsing. The C
 ```ruby
 adapter = Inquirex::LLM::JevAdapter.new                       # key and model from the configuration
 adapter = Inquirex::LLM::JevAdapter.new(min_confidence: 0.6)  # less sure than 0.6 → nil
-values, confidence = adapter.extract(node, answers)           # #call returns values only
+extraction = adapter.call(node, answers)                      # the values, as every adapter returns them
+extraction.raw.dig("filing_status", "confidence")             # how sure Jev was, from TypeSafe's answer
 ```
 
 Jev, TypeSafe's System One model, answers typed questions with calibrated probabilities instead of writing JSON. The adapter turns each schema field into questions and sends them all in one request: a Choice per `enum` (plus "not stated"), a yes / no / not-stated Choice per `boolean`, a presence Choice plus a Noul per value for `multi_enum`, and for `integer` a Choice among the numbers the text states (digits or words, `Inquirex::LLM::Numbers`) and the counts 0 to 12. It retries 429 and 529 twice with backoff.

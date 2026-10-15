@@ -128,6 +128,22 @@ module Inquirex
 
       protected
 
+      # The tokens a response reports, in one shape whatever the provider's:
+      # Anthropic counts input_tokens/output_tokens, OpenAI and OpenRouter
+      # prompt_tokens/completion_tokens, and OpenRouter adds the cost it
+      # billed. Empty when the response carries no usage at all.
+      #
+      # @param usage [Hash, nil] the response's "usage" object
+      # @return [Hash{Symbol => Numeric}] input_tokens, output_tokens, and cost_usd when reported
+      def usage_from(usage)
+        return {} unless usage.is_a?(Hash)
+
+        counts = usage.transform_keys(&:to_s)
+        { input_tokens:  (counts["input_tokens"] || counts["prompt_tokens"]).to_i,
+          output_tokens: (counts["output_tokens"] || counts["completion_tokens"]).to_i,
+          cost_usd:      counts["cost"]&.to_f }.compact
+      end
+
       # The canonical form value for a raw LLM answer, or nil when the answer
       # is outside the allowed list (after trimming and case-folding).
       #

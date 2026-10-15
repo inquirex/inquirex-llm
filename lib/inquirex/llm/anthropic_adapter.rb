@@ -4,6 +4,7 @@ require "net/http"
 require "uri"
 require "json"
 require "inquirex/llm/adapter"
+require "inquirex/llm/extraction"
 require "inquirex/llm/configuration"
 
 module Inquirex
@@ -49,7 +50,7 @@ module Inquirex
 
       # @param node [Inquirex::LLM::Node] the current LLM step
       # @param answers [Hash] all collected answers so far
-      # @return [Hash] structured data matching the node's schema
+      # @return [Extraction] the schema-shaped values, with the model's raw JSON and the usage
       # @raise [Errors::AdapterError] on API / parse failures
       # @raise [Errors::SchemaViolationError] when the LLM output misses schema fields
       def call(node, answers = {})
@@ -66,7 +67,8 @@ module Inquirex
           max_tokens:  max_tokens
         )
 
-        result = normalize_output(node, parse_response(response))
+        raw = parse_response(response)
+        result = Extraction.new(output: normalize_output(node, raw), raw: raw, usage: usage_from(response["usage"]))
         validate_output!(node, result)
         result
       end

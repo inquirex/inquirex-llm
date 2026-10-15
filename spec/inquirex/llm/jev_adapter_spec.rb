@@ -164,11 +164,14 @@ RSpec.describe Inquirex::LLM::JevAdapter do
     end
   end
 
-  describe "#extract" do
-    subject(:extraction) { adapter.extract(node, answers) }
+  describe "the Extraction" do
+    subject(:extraction) { adapter.call(node, answers) }
 
-    it "returns the confidences beside the values" do
-      expect(extraction.confidence).to include(filing_status: 0.9, dependents: 0.4, income_types: 0.8)
+    it { is_expected.to be_a(Inquirex::LLM::Extraction) }
+
+    it "keeps TypeSafe's answers, confidences included, as raw" do
+      expect(extraction.raw.dig("filing_status", "confidence")).to eq(0.9)
+      expect(extraction.raw.dig("income_types__addressed", "confidence")).to eq(0.8)
     end
 
     its(:usage) { is_expected.to eq(input_tokens: 812, output_tokens: 40) }

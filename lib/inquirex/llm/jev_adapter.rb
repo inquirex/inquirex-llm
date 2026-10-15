@@ -4,6 +4,7 @@ require "net/http"
 require "uri"
 require "json"
 require "inquirex/llm/adapter"
+require "inquirex/llm/extraction"
 require "inquirex/llm/configuration"
 require "inquirex/llm/numbers"
 
@@ -32,7 +33,7 @@ module Inquirex
     #   adapter = Inquirex::LLM::JevAdapter.new  # key and model from Inquirex::LLM.configuration
     #   adapter = Inquirex::LLM::JevAdapter.new(min_confidence: 0.6)
     #   adapter.call(node, answers)              # => { filing_status: "single", dependents: nil, ... }
-    #   adapter.extract(node, answers)           # => #<data Extraction values=..., confidence=..., usage=...>
+    #   adapter.call(node, answers).raw          # => { "filing_status" => { "choice" => "single", "confidence" => 0.9 }, ... }
     class JevAdapter < Adapter
       API_URL = "https://api.typesafe.ai/v1/systemone"
 
@@ -52,10 +53,6 @@ module Inquirex
       RETRY_STATUSES = %w[429 529].freeze
       MAX_RETRIES = 2
       MAX_RETRY_DELAY = 8.0
-
-      # What {#extract} returns: the values {#call} returns, how sure Jev was
-      # of each field, and the tokens TypeSafe counted for the request.
-      Extraction = Data.define(:values, :confidence, :usage)
 
       attr_reader :model, :min_confidence
 
@@ -81,18 +78,16 @@ module Inquirex
         @min_confidence = min_confidence
       end
 
+      # One value per schema field, nil where the source is silent. The
+      # {Extraction#raw} is TypeSafe's answer to every question, so how sure
+      # Jev was of a field is `raw.dig("field", "confidence")` (for a
+      # multi_enum, `raw.dig("field__addressed", "confidence")`).
+      #
       # @param node [Inquirex::LLM::Node] the current extract step
       # @param answers [Hash] all collected answers so far
-      # @return [Hash{Symbol => Object}] one value per schema field; nil where the source is silent
+      # @return [Extraction] usage is { input_tokens:, output_tokens: }
       # @raise [Errors::AdapterError] on API failures, or a field Jev cannot answer
       def call(node, answers = {})
-        extract(node, answers).values
-      end
-
-      # {#call}, plus how sure Jev was of each field and what the request cost.
-      #
-      # @return [Extraction] usage is { input_tokens:, output_tokens: }
-      def extract(node, answers = {})
         raise Errors::AdapterError, "#{node.id.inspect} has no schema; Jev can only answer a schema" unless node.schema
 
         unsupported = self.class.unsupported_fields(node.schema)
@@ -112,10 +107,7 @@ module Inquirex
         values = readers.to_h { |field, reader| [field, reader.call(result.fetch("answers"), confidence)] }
         values = values.to_h { |field, value| [field, confident?(confidence[field]) ? value : nil] }
         validate_output!(node, values)
-        usage = result.fetch("usage", {})
-        Extraction.new(values: values,
-          confidence: confidence,
-          usage: { input_tokens: usage["input_tokens"].to_i, output_tokens: usage["output_tokens"].to_i })
+        Extraction.new(output: values, raw: result.fetch("answers"), usage: usage_from(result["usage"]))
       end
 
       # Jev cannot write prose.
