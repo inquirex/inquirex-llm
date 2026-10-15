@@ -1,0 +1,18 @@
+recipients:
+- name: admin
+  public_key: age1se1qwlutstjuwc8w3cq742cs4da7t6vxd7qfq6u4adg069s4x7f9aj3wrz9l4n
+  username: Konstantin Gredeskoul
+  break_glass: false
+- name: kig
+  public_key: age1se1qd5u6etgv8strw3hntpgcl9w93tud52trgr3ky46hddvyrz4eujvz9fdeq2
+  username: kig
+  requested_at: 2026-10-14T21:35:18Z
+  approved_at: 2026-10-14T21:35:26Z
+  approved_by: kig
+  break_glass: false
+encrypted_globs:
+- '*.encrypted'
+- .env.encrypted
+- config/*.encrypted.yaml
+sops_version: 3.13.2
+join_request_ttl: 72h

@@ -240,20 +240,22 @@ result = adapter.call(engine.current_step)
 
 Model ids, the provider and its credentials are set in one place, `Inquirex::LLM.configuration`. Each setting is read from its environment variable when that variable is set and not blank, and otherwise takes the default below. The adapters fall back on it whenever no `api_key:` or `model:` is passed and a node sets no `max_tokens` or `temperature` of its own.
 
-| Variable                           | Setting               | Default                                                         |
-| ---------------------------------- | --------------------- | --------------------------------------------------------------- |
-| `INQUIREX_LLM_ADAPTER`             | `provider`            | auto-detect; else `anthropic`, `openai` or `null`               |
-| `ANTHROPIC_API_KEY`                | `anthropic_api_key`   | none                                                            |
-| `OPENAI_API_KEY`                   | `openai_api_key`      | none                                                            |
-| `INQUIREX_LLM_ANTHROPIC_MODEL`     | `anthropic_model`     | `Models::ANTHROPIC_DEFAULT` (`claude-sonnet-5-5`)               |
-| `INQUIREX_LLM_OPENAI_MODEL`        | `openai_model`        | `Models::OPENAI_DEFAULT` (`gpt-4o-mini`)                        |
-| `INQUIREX_LLM_MAX_TOKENS`          | `max_tokens`          | `2048`                                                          |
-| `INQUIREX_LLM_TEMPERATURE`         | `temperature`         | `0.2`                                                           |
-| `INQUIREX_LLM_SUMMARY_MAX_TOKENS`  | `summary_max_tokens`  | `4096`                                                          |
-| `INQUIREX_LLM_SUMMARY_TEMPERATURE` | `summary_temperature` | `0.4`                                                           |
-| `INQUIREX_DEBUG`                   | `debug`               | off; any non-blank value turns it on                            |
-| `TYPESAFE_API_KEY`                 | `typesafe_api_key`    | none; reserved for the upcoming Jev adapter                     |
-| `INQUIREX_LLM_JEV_MODEL`           | `jev_model`           | `jev-1.13.0`, unverified; reserved for the upcoming Jev adapter |
+| Variable                           | Setting               | Default                                                                |
+| ---------------------------------- | --------------------- | ---------------------------------------------------------------------- |
+| `INQUIREX_LLM_ADAPTER`             | `provider`            | auto-detect; else `anthropic`, `openai`, `openrouter`, `jev` or `null` |
+| `ANTHROPIC_API_KEY`                | `anthropic_api_key`   | none                                                                   |
+| `OPENAI_API_KEY`                   | `openai_api_key`      | none                                                                   |
+| `OPENROUTER_API_KEY`               | `openrouter_api_key`  | none                                                                   |
+| `TYPESAFE_API_KEY`                 | `typesafe_api_key`    | none                                                                   |
+| `INQUIREX_LLM_ANTHROPIC_MODEL`     | `anthropic_model`     | `Models::ANTHROPIC_DEFAULT` (`claude-sonnet-5-5`)                      |
+| `INQUIREX_LLM_OPENAI_MODEL`        | `openai_model`        | `Models::OPENAI_DEFAULT` (`gpt-4o-mini`)                               |
+| `INQUIREX_LLM_OPENROUTER_MODEL`    | `openrouter_model`    | `Models::OPENROUTER_DEFAULT` (`anthropic/claude-sonnet-5.5`)           |
+| `INQUIREX_LLM_JEV_MODEL`           | `jev_model`           | `Models::JEV_DEFAULT` (`jev-latest`)                                   |
+| `INQUIREX_LLM_MAX_TOKENS`          | `max_tokens`          | `2048`                                                                 |
+| `INQUIREX_LLM_TEMPERATURE`         | `temperature`         | `0.2`                                                                  |
+| `INQUIREX_LLM_SUMMARY_MAX_TOKENS`  | `summary_max_tokens`  | `4096`                                                                 |
+| `INQUIREX_LLM_SUMMARY_TEMPERATURE` | `summary_temperature` | `0.4`                                                                  |
+| `INQUIREX_DEBUG`                   | `debug`               | off; any non-blank value turns it on                                   |
 
 An invalid value (an unknown provider, a token count that is not a positive integer, a temperature outside 0 to 2) raises `Inquirex::LLM::Errors::ConfigurationError` naming the variable. `to_h` and `inspect` print every `*_api_key` as `[REDACTED]`.
 
@@ -285,14 +287,17 @@ Inquirex::LLM.reset_configuration!         # discard overrides and read ENV agai
 
 ## Built-in Adapters
 
-| Class                                   | Provider  | API                                | Auth                      | Key env var         |
-| --------------------------------------- | --------- | ---------------------------------- | ------------------------- | ------------------- |
-| `Inquirex::LLM::NullAdapter`            | —         | none (placeholders)                | none                      | —                   |
-| `Inquirex::LLM::AnthropicAdapter`       | Anthropic | `/v1/messages`                     | `x-api-key` header        | `ANTHROPIC_API_KEY` |
-| `Inquirex::LLM::OpenAIAdapter`          | OpenAI    | `/v1/chat/completions` (JSON mode) | `Authorization: Bearer …` | `OPENAI_API_KEY`    |
-| `Inquirex::LLM::LittleLLMAdapter` (TBD) | Any       | OpenAI Compatible API              | OpenAI Compatible Auth    | Provider Specific   |
+| Class                              | Provider   | API                                    | Auth                      | Key env var          |
+| ---------------------------------- | ---------- | -------------------------------------- | ------------------------- | -------------------- |
+| `Inquirex::LLM::NullAdapter`       | —          | none (placeholders)                    | none                      | —                    |
+| `Inquirex::LLM::AnthropicAdapter`  | Anthropic  | `/v1/messages`                         | `x-api-key` header        | `ANTHROPIC_API_KEY`  |
+| `Inquirex::LLM::OpenAIAdapter`     | OpenAI     | `/v1/chat/completions` (JSON mode)     | `Authorization: Bearer …` | `OPENAI_API_KEY`     |
+| `Inquirex::LLM::OpenRouterAdapter` | OpenRouter | `/api/v1/chat/completions` (JSON mode) | `Authorization: Bearer …` | `OPENROUTER_API_KEY` |
+| `Inquirex::LLM::JevAdapter`        | TypeSafe   | `/v1/systemone` (typed questions)      | `Authorization: Bearer …` | `TYPESAFE_API_KEY`   |
 
-The Anthropic and OpenAI adapters use `net/http` (stdlib, no extra dependency), inject the declared `schema` into the system prompt as a strict JSON contract, and raise `Inquirex::LLM::Errors::AdapterError` on HTTP / parse failures and `SchemaViolationError` when the model's output is missing declared fields.
+OpenRouter and Jev are never auto-detected; select them with `INQUIREX_LLM_ADAPTER` or build them directly.
+
+All adapters use `net/http` (stdlib, no extra dependency), inject the declared `schema` into the system prompt as a strict JSON contract, and raise `Inquirex::LLM::Errors::AdapterError` on HTTP / parse failures and `SchemaViolationError` when the model's output is missing declared fields.
 
 ### AnthropicAdapter
 
@@ -316,6 +321,27 @@ adapter = Inquirex::LLM::OpenAIAdapter.new(api_key: "sk-...", model: "gpt-4.1")
 ```
 
 Uses Chat Completions with `response_format: { type: "json_object" }` so the model is constrained to return valid JSON. Recognized DSL symbols: `:gpt_4o`, `:gpt_4o_mini`, `:gpt_4_1`, `:gpt_4_1_mini`. For cross-provider portability, the adapter also accepts the Claude symbols (`:claude_sonnet` → `gpt-4o` etc.) so a flow file that says `model :claude_sonnet` runs unchanged against either provider.
+
+### OpenRouterAdapter
+
+```ruby
+adapter = Inquirex::LLM::OpenRouterAdapter.new   # key and model from the configuration
+adapter = Inquirex::LLM::OpenRouterAdapter.new(model: "google/gemini-2.5-flash", effort: "low")
+```
+
+Any model OpenRouter hosts, with the OpenAI adapter's prompts and parsing. The Claude and GPT symbols map to OpenRouter ids (`:claude_haiku` → `anthropic/claude-haiku-5.5`); any other model is sent as written. `effort:` (`none` … `max`) becomes OpenRouter's `reasoning.effort`; without it the model decides.
+
+### JevAdapter
+
+```ruby
+adapter = Inquirex::LLM::JevAdapter.new                       # key and model from the configuration
+adapter = Inquirex::LLM::JevAdapter.new(min_confidence: 0.6)  # less sure than 0.6 → nil
+values, confidence = adapter.extract(node, answers)           # #call returns values only
+```
+
+Jev, TypeSafe's System One model, answers typed questions with calibrated probabilities instead of writing JSON. The adapter turns each schema field into questions and sends them all in one request: a Choice per `enum` (plus "not stated"), a yes / no / not-stated Choice per `boolean`, a presence Choice plus a Noul per value for `multi_enum`, and for `integer` a Choice among the numbers the text states (digits or words, `Inquirex::LLM::Numbers`) and the counts 0 to 12. It retries 429 and 529 twice with backoff.
+
+Jev chooses; it cannot write. A schema with a `string`, `text`, `date`, `email`, `phone` or other free-form field raises `AdapterError` before anything is sent (`JevAdapter.unsupported_fields(schema)` checks a flow up front), and `summarize` always raises. Route those to a text model.
 
 ## LLM-assisted Pre-fill Pattern
 

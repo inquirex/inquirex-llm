@@ -11,6 +11,8 @@ AllCops:
   Include:
     - '**/*.rb'
   Exclude:
+    - evals/dsls/**/*
+    - evals/schema/**/*
 
 # Standard gem require alias — file must be named with a dash to match the gem name
 Naming/FileName:
