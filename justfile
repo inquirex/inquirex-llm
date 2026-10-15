@@ -6,7 +6,8 @@ version := `grep VERSION lib/inquirex/llm/version.rb | awk '{print $3}' | tr -d 
 # ~/.bash_login: already configured"), which eval then tries to run, and the
 # recipe dies with "skipping: command not found". `rbenv init - bash` prints
 # the shell code that is meant to be eval'd.
-rbenv   := 'eval "$(rbenv init - bash 2>/dev/null || true)"; bundle exec '
+rbenv        := 'eval "$(rbenv init - bash 2>/dev/null || true)"; bundle exec '
+rbenv_init   := 'eval "$(rbenv init - bash 2>/dev/null || true)"'
 # This gem's own repo. It read inquirex/inquirex until 0.9.2, which pointed
 # `just release` at the core gem — it deletes and recreates a GitHub release
 # at {{ repo }}, so running it here operated on the wrong repository.
@@ -61,12 +62,12 @@ check-all: install lint test-coverage
 # 05-managed-it-services` narrows to one dataset. Needs OPENROUTER_API_KEY.
 #
 # Run all extraction evals for every configured model
-evals *args: evals-verify
-    {{ rbenv }} agent-evals compare {{ args }}
+evals *args: 
+    {{ rbenv_init }}; bundle exec agent-evals compare --config evals/.agent-eval.config.yml {{ args }}
 
 # Check schemas, inputs and expected answers offline, with no model calls
 evals-verify:
-    {{ rbenv }} agent-evals verify
+    {{ rbenv_init }}; cd evals && agent-evals verify --config .agent-eval.config.yml
 
 clean:
     #!/usr/bin/env bash

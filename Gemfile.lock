@@ -7,7 +7,7 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
-    agent-evals (0.1.1)
+    agent-evals (0.2.0)
       dotenv (~> 3.2)
       dry-cli (~> 1.4)
       dry-cli-autocomplete (~> 0.6)
@@ -223,7 +223,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  agent-evals (~> 0.1)
+  agent-evals (~> 0.2.0)
   braintrust
   bundle-audit
   coverage-badge
@@ -238,7 +238,7 @@ DEPENDENCIES
   yard
 
 CHECKSUMS
-  agent-evals (0.1.1) sha256=005fcf28b601f340f0b3fd24d21c5dfaed40e82ef8a655794431730b557afbe2
+  agent-evals (0.2.0) sha256=4aa9a7db08cb3180db3285375f3e0fbeded9ed8014f9b283c6f08e59971ae499
   ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   bigdecimal (4.1.3) sha256=61ebe1e5e559bdc3cc6f2c0ee7f427321fc838f59611c294356eb04d6e21cf66
