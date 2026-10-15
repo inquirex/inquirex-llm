@@ -37,6 +37,6 @@ RSpec.describe "inquirex-llm.gemspec" do
   end
 
   it "depends on the core gem at the version it is released with" do
-    expect(gemspec.runtime_dependencies.find { |dep| dep.name == "inquirex" }.requirement.to_s).to eq("~> 0.12")
+    expect(gemspec.runtime_dependencies.find { |dep| dep.name == "inquirex" }.requirement.to_s).to eq("~> 0.12.1")
   end
 end

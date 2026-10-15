@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     inquirex-llm (0.12.0)
-      inquirex (~> 0.12)
+      inquirex (~> 0.12.1)
 
 GEM
   remote: https://rubygems.org/
@@ -37,7 +37,7 @@ GEM
       rake (~> 13.3)
     googleapis-common-protos-types (1.23.0)
       google-protobuf (~> 4.26)
-    inquirex (0.12.0)
+    inquirex (0.12.1)
       ostruct (~> 0.6)
       prism (>= 1.7, < 2)
     json (2.21.2)
@@ -151,7 +151,6 @@ DEPENDENCIES
   braintrust
   bundle-audit
   coverage-badge
-  inquirex (0.12.0)
   inquirex-llm!
   rake
   rspec
@@ -178,7 +177,7 @@ CHECKSUMS
   faraday-retry (2.4.0) sha256=7b79c48fb7e56526faf247b12d94a680071ff40c9fda7cf1ec1549439ad11ebe
   google-protobuf (4.36.2) sha256=2f8daff50ae14aad36ab0ccdcf284065fa71d726c444efe114e6db82ffe62494
   googleapis-common-protos-types (1.23.0) sha256=992e740a523794d9fc5f29a504465d8fc737aaa16c930fe7228e3346860faf0a
-  inquirex (0.12.0)
+  inquirex (0.12.1)
   inquirex-llm (0.12.0)
   json (2.21.2) sha256=1f1d3b7cf2b3ba1a69beca0bb6db13d5438b80bff3cd54cdaaa620b9b07c1c6a
   language_server-protocol (3.17.0.6) sha256=5ef2c0c138f8267e1bc631d3328347d354f96724b0af22f2c79516120443b7f0
