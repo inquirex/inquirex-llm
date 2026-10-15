@@ -77,7 +77,8 @@ RSpec.describe Inquirex::LLM do
 
   describe ".adapter" do
     let(:clean) do
-      { "INQUIREX_LLM_ADAPTER" => nil, "ANTHROPIC_API_KEY" => nil, "OPENAI_API_KEY" => nil, "TYPESAFE_API_KEY" => nil }
+      { "INQUIREX_LLM_ADAPTER" => nil, "ANTHROPIC_API_KEY" => nil, "OPENAI_API_KEY" => nil, "TYPESAFE_API_KEY" => nil,
+        "OPENROUTER_API_KEY" => nil }
     end
 
     {
@@ -89,7 +90,10 @@ RSpec.describe Inquirex::LLM do
                                                                                                         Inquirex::LLM::OpenAIAdapter,
       { "ANTHROPIC_API_KEY" => "k", "OPENAI_API_KEY" => "k" }                                        => Inquirex::LLM::AnthropicAdapter,
       { "OPENAI_API_KEY" => "k" }                                                                    => Inquirex::LLM::OpenAIAdapter,
-      { "TYPESAFE_API_KEY" => "k" }                                                                  => Inquirex::LLM::NullAdapter
+      { "TYPESAFE_API_KEY" => "k" }                                                                  => Inquirex::LLM::NullAdapter,
+      { "OPENROUTER_API_KEY" => "k" }                                                                => Inquirex::LLM::NullAdapter,
+      { "INQUIREX_LLM_ADAPTER" => "openrouter", "OPENROUTER_API_KEY" => "k" }                        =>
+                                                                                                        Inquirex::LLM::OpenRouterAdapter
     }.each do |vars, adapter_class|
       it "builds #{adapter_class.name.split("::").last} from #{vars.empty? ? "nothing" : vars.keys.join(", ")}" do
         with_env(clean.merge(vars)) do

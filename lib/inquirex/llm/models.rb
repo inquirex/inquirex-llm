@@ -39,6 +39,23 @@ module Inquirex
       # The OpenAI model used when nothing else names one.
       OPENAI_DEFAULT = OPENAI_ALIASES.fetch(:gpt_4o_mini)
 
+      # OpenRouter ids for the DSL symbols, so a flow written against
+      # Anthropic runs unchanged through OpenRouter. Any other model is sent
+      # as written ("google/gemini-2.5-flash").
+      OPENROUTER_ALIASES = {
+        claude_fable:  "anthropic/claude-fable-5.1",
+        claude_opus:   "anthropic/claude-opus-5.5",
+        claude_sonnet: "anthropic/claude-sonnet-5.5",
+        claude_haiku:  "anthropic/claude-haiku-5.5",
+        gpt_4o:        "openai/gpt-4o",
+        gpt_4o_mini:   "openai/gpt-4o-mini",
+        gpt_4_1:       "openai/gpt-4.1",
+        gpt_4_1_mini:  "openai/gpt-4.1-mini"
+      }.freeze
+
+      # The OpenRouter model used when nothing else names one.
+      OPENROUTER_DEFAULT = OPENROUTER_ALIASES.fetch(:claude_sonnet)
+
       # TypeSafe's Jev model, reserved for a Jev adapter that does not exist
       # yet. This is the version the docs last recorded; it is UNVERIFIED
       # against TypeSafe's live model list and must be confirmed before any

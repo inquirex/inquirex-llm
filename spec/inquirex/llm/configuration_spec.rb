@@ -38,9 +38,11 @@ RSpec.describe Inquirex::LLM::Configuration do
         "INQUIREX_LLM_ADAPTER"             => ["OpenAI", :provider, :openai],
         "ANTHROPIC_API_KEY"                => ["sk-ant", :anthropic_api_key, "sk-ant"],
         "OPENAI_API_KEY"                   => ["sk-oai", :openai_api_key, "sk-oai"],
+        "OPENROUTER_API_KEY"               => ["sk-or", :openrouter_api_key, "sk-or"],
         "TYPESAFE_API_KEY"                 => ["ts-key", :typesafe_api_key, "ts-key"],
         "INQUIREX_LLM_ANTHROPIC_MODEL"     => ["claude-opus-5-5", :anthropic_model, "claude-opus-5-5"],
         "INQUIREX_LLM_OPENAI_MODEL"        => ["gpt-4.1", :openai_model, "gpt-4.1"],
+        "INQUIREX_LLM_OPENROUTER_MODEL"    => ["google/gemini-2.5-flash", :openrouter_model, "google/gemini-2.5-flash"],
         "INQUIREX_LLM_JEV_MODEL"           => ["jev-2.0.0", :jev_model, "jev-2.0.0"],
         "INQUIREX_LLM_MAX_TOKENS"          => [" 1024 ", :max_tokens, 1024],
         "INQUIREX_LLM_TEMPERATURE"         => ["0.7", :temperature, 0.7],
@@ -89,7 +91,7 @@ RSpec.describe Inquirex::LLM::Configuration do
 
     it "lists the accepted providers, and :jev is not one" do
       expect { described_class.new("INQUIREX_LLM_ADAPTER" => "jev") }
-        .to raise_error(/one of anthropic, openai, null/)
+        .to raise_error(/one of anthropic, openai, openrouter, null/)
     end
   end
 
@@ -118,13 +120,17 @@ RSpec.describe Inquirex::LLM::Configuration do
   end
 
   describe "credentials in output" do
-    let(:env) { { "ANTHROPIC_API_KEY" => "sk-ant-secret", "OPENAI_API_KEY" => "sk-oai-secret", "TYPESAFE_API_KEY" => "ts-secret" } }
+    let(:env) {
+      { "ANTHROPIC_API_KEY" => "sk-ant-secret", "OPENAI_API_KEY" => "sk-oai-secret",
+                  "OPENROUTER_API_KEY" => "sk-or-secret", "TYPESAFE_API_KEY" => "ts-secret" }
+    }
 
     it "are redacted by #to_h" do
       expect(config.to_h).to include(
-        anthropic_api_key: described_class::REDACTED,
-        openai_api_key:    described_class::REDACTED,
-        typesafe_api_key:  described_class::REDACTED
+        anthropic_api_key:  described_class::REDACTED,
+        openai_api_key:     described_class::REDACTED,
+        openrouter_api_key: described_class::REDACTED,
+        typesafe_api_key:   described_class::REDACTED
       )
     end
 
