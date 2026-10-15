@@ -1,0 +1,14 @@
+{
+  "seat_count": 45,
+  "work_model": "hybrid",
+  "infrastructure": "hybrid",
+  "server_count": 2,
+  "current_support": "internal_person",
+  "compliance": [
+    "hipaa"
+  ],
+  "security_incident": true,
+  "growth_planned": true,
+  "response_time": "four_hours",
+  "biggest_pain": "security_worries"
+}

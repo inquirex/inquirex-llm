@@ -1,0 +1,15 @@
+{
+  "event_type": "wedding",
+  "season": "autumn",
+  "guest_count": 140,
+  "coverage_hours": 10,
+  "formats": "both",
+  "locations": 3,
+  "full_day_arc": true,
+  "travel_required": true,
+  "add_ons": [
+    "drone",
+    "album",
+    "second_shooter"
+  ]
+}

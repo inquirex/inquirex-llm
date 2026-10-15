@@ -1,0 +1,45 @@
+# The models `extract-eval compare` pits against each other.
+#
+# Each entry under a vendor becomes "<vendor>/<model>", the OpenRouter id.
+# `effort` and `temperature` take one value or a list; a list expands into one
+# contender per value, so `effort: [low, high]` with `temperature: [0.0, 0.7]`
+# runs four experiments for that model. Anything left out falls back to
+# `defaults`. Flags on the command line (-e, -t, --max-tokens) beat both.
+#
+# effort:      default | none | minimal | low | medium | high | xhigh | max
+#              (default sends nothing and leaves the model's own setting)
+# temperature: a number, or default to send none. OpenRouter drops it for
+#              models that do not accept one (the Claude 5.x family among them).
+
+# Experiments go to the project whose UUID is in BRAINTRUST_PROJECT_ID (.env);
+# this name is used only when that variable is unset, and is created if missing.
+project: inquirex-llm-extract
+
+defaults:
+  effort: default
+  temperature: 0.1 # the gem's own default
+  max_tokens: 8192 # covers the reasoning tokens a high effort spends
+  parallelism: 4
+
+vendors:
+  anthropic:
+    - model: claude-fable-5
+    - model: claude-opus-5
+    - model: claude-sonnet-5.5
+    - model: claude-haiku-5.5
+      effort: [default, low, high]
+  openai:
+    - model: gpt-4.1-mini
+    - model: gpt-4o-mini
+    - model: gpt-6.1-sol
+  google:
+    - model: gemini-2.5-flash
+    - model: gemini-4-argon
+  meta-llama:
+    - model: llama-3.3-70b-instruct
+  typesafe:
+    - model: jev-router # Jev on OpenRouter; the gem's Models::JEV_DEFAULT ("jev-1.13.0") is a direct-API id
+  typesafe-api:
+    - model: jev-latest # Jev through TypeSafe's own API, one typed question per field (JevAdapter)
+  moonshotai:
+    - model: kimi-k3

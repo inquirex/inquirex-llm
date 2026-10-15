@@ -1,0 +1,39 @@
+set shell := ["bash", "-c"]
+
+export BUNDLE_GEMFILE := justfile_directory() / "Gemfile"
+
+# List recipes
+default:
+    @just --list
+
+# Install the evals' bundle
+install:
+    bundle install
+
+# Run the specs (no network)
+test:
+    bundle exec rspec
+
+# Lint with the repo's RuboCop config
+lint:
+    BUNDLE_GEMFILE={{justfile_directory()}}/../Gemfile bundle exec rubocop lib spec exe Gemfile
+
+# Check fixtures against their DSLs (no network)
+verify:
+    exe/extract-eval verify
+
+# Print the config.yml matrix without calling anything
+matrix:
+    exe/extract-eval compare -n
+
+# Run every config.yml contender into Braintrust
+compare *args:
+    exe/extract-eval compare {{args}}
+
+# Run one or two models into Braintrust
+run model *args:
+    @echo "running: [exe/extract-eval run -m {{model}} {{args}}]"
+    @exe/extract-eval run -m {{model}} {{args}}
+
+# What CI would run
+ci: lint test verify

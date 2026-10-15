@@ -1,0 +1,12 @@
+{
+  "rooms": [
+    "kitchen",
+    "bath"
+  ],
+  "scope": "gut",
+  "finish_level": "mid",
+  "square_feet": 320,
+  "moving_walls": true,
+  "design_plans": "working_with_designer",
+  "timeline": "next_3_months"
+}

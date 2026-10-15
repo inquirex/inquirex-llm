@@ -1,0 +1,13 @@
+{
+  "entity_type": "single_member_llc",
+  "industry": "professional_services",
+  "revenue_band": "from_100k_to_500k",
+  "transaction_volume": 150,
+  "account_count": 3,
+  "books_state": "behind",
+  "months_behind": 4,
+  "filing_blocked": true,
+  "accounting_software": "cloud_software",
+  "payroll": true,
+  "service_needed": "monthly_bookkeeping"
+}

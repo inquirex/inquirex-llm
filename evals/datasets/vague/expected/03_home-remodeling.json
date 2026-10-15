@@ -1,0 +1,11 @@
+{
+  "rooms": [
+    "kitchen"
+  ],
+  "scope": "refresh",
+  "finish_level": null,
+  "square_feet": null,
+  "moving_walls": false,
+  "design_plans": "none",
+  "timeline": "just_exploring"
+}

@@ -1,0 +1,11 @@
+{
+  "project_scope": "full_replacement",
+  "stories": "two",
+  "roof_pitch": "steep",
+  "material": "architectural",
+  "roof_age": "over_20",
+  "leaking_now": true,
+  "storm_damage": true,
+  "filing_insurance": true,
+  "timeline": "emergency"
+}
