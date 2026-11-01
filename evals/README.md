@@ -1,14 +1,14 @@
 # Extraction evals
 
-Which model best turns what a visitor writes into the structured answers an Inquirex `extract` step declares? Ten real flows, each with a complete paragraph and a vague one, run on [agent-evals](https://github.com/kigster/agent-evals) with this gem's production prompts.
+Which model best turns what a visitor writes into the structured answers an Inquirex `extract` step declares? Ten real flows, each with a complete paragraph and a vague one, run on [llm-evals](https://github.com/kigster/llm-evals) with this gem's production prompts.
 
-This folder holds only the lineup file and the data. The Ruby is the gem's, under `lib/inquirex/llm/evals/`, named by three keys in `.agent-eval.config.yml`: `Inquirex::LLM::Evals::Adapter` runs one case through `Inquirex::LLM::OpenAIAdapter`'s prompts and parsing, and `Inquirex::LLM::Evals::Scorer` grades the reply field by field. Neither is loaded by `require "inquirex-llm"`.
+This folder holds only the lineup file and the data. The Ruby is the gem's, under `lib/inquirex/llm/evals/`, named by three keys in `.llm-evals.config.yml`: `Inquirex::LLM::Evals::Adapter` runs one case through `Inquirex::LLM::OpenAIAdapter`'s prompts and parsing, and `Inquirex::LLM::Evals::Scorer` grades the reply field by field. Neither is loaded by `require "inquirex-llm"`.
 
 ## Layout
 
 ```text
 evals/
-  .agent-eval.config.yml          the models to compare, and the three keys that name the Ruby
+  .llm-evals.config.yml          the models to compare, and the three keys that name the Ruby
   datasets/<NN-slug>/
     dsl.rb                        the flow; its single extract step supplies prompt and schema
     schema.rb                     that step's schema, copied verbatim (verify fails on drift)
@@ -25,17 +25,17 @@ Each dataset is one case per variant, so the suite is 10 datasets and 20 cases. 
 From the repository root, with the `:evals` group bundled:
 
 ```bash
-bundle exec agent-evals cases                              # the 20 cases, no calls
-bundle exec agent-evals verify                             # schemas, inputs and expected answers, offline
-bundle exec agent-evals run -m openai/gpt-4o-mini          # one model, every dataset, per-case breakdown
-bundle exec agent-evals run -m anthropic/claude-haiku-5.5 -e low -d 05-managed-it-services
-bundle exec agent-evals compare                            # everything the lineup lists, leaderboard only
-bundle exec agent-evals compare -n                         # show that matrix, call nothing
-bundle exec agent-evals run --local -m google/gemini-2.5-flash   # no remote tracker
+bundle exec evals cases                              # the 20 cases, no calls
+bundle exec evals verify                             # schemas, inputs and expected answers, offline
+bundle exec evals run -m openai/gpt-4o-mini          # one model, every dataset, per-case breakdown
+bundle exec evals run -m anthropic/claude-haiku-5.5 -e low -d 05-managed-it-services
+bundle exec evals compare                            # everything the lineup lists, leaderboard only
+bundle exec evals compare -n                         # show that matrix, call nothing
+bundle exec evals run --local -m google/gemini-2.5-flash   # no remote tracker
 just evals                                                 # verify, then compare the whole lineup
 ```
 
-Keys: `OPENROUTER_API_KEY` for every contender. Results always go to `log/agent-evals/` as JSON. A remote tracker is optional and there is at most one: `BRAINTRUST_API_KEY` (plus `BRAINTRUST_PROJECT_ID`) selects Braintrust, `LOGFIRE_TOKEN` selects Logfire, and setting both is an error unless `--tracker braintrust|logfire` picks one. `--local` sends nothing. The repository's `.envrc` exports the keys from `.env.encrypted`.
+Keys: `OPENROUTER_API_KEY` for every contender. Results always go to `log/llm-evals/` as JSON. A remote tracker is optional and there is at most one: `BRAINTRUST_API_KEY` (plus `BRAINTRUST_PROJECT_ID`) selects Braintrust, `LOGFIRE_TOKEN` selects Logfire, and setting both is an error unless `--tracker braintrust|logfire` picks one. `--local` sends nothing. The repository's `.envrc` exports the keys from `.env.encrypted`.
 
 ## Scoring
 

@@ -6,10 +6,10 @@ RSpec.describe Inquirex::LLM::Evals::Adapter do
   subject(:adapter) { described_class.new(root: root) }
 
   let(:root) { File.expand_path("../../../../evals", __dir__) }
-  let(:discovery) { Agent::Evals::Discovery.new(root: root) }
+  let(:discovery) { LLM::Evals::Discovery.new(root: root) }
   let(:kase) { discovery.cases(dataset: "05-managed-it-services", only: ["complete"]).first }
   let(:answer) { JSON.generate(kase.expected.merge("compliance" => ["HIPAA"], "work_model" => "office")) }
-  let(:model) { Agent::Evals::Testing::FakeModel.new(answers: ->(_user) { answer }) }
+  let(:model) { LLM::Evals::Testing::FakeModel.new(answers: ->(_user) { answer }) }
 
   describe "#call" do
     subject(:reply) { adapter.call(kase, model: model) }
@@ -30,7 +30,7 @@ RSpec.describe Inquirex::LLM::Evals::Adapter do
     end
 
     it "carries the usage the model reported and the prompts it was sent" do
-      expect(reply.usage).to eq(Agent::Evals::Testing::FakeProvider::USAGE)
+      expect(reply.usage).to eq(LLM::Evals::Testing::FakeProvider::USAGE)
       expect(reply.metadata[:prompt]).to include(:system, :user)
     end
 
@@ -48,7 +48,7 @@ RSpec.describe Inquirex::LLM::Evals::Adapter do
       it "is the model's failure: an error reply that keeps the text" do
         expect(reply.error).to include("Failed to parse LLM response as JSON")
         expect(reply.raw).to eq(answer)
-        expect(reply.usage).to eq(Agent::Evals::Testing::FakeProvider::USAGE)
+        expect(reply.usage).to eq(LLM::Evals::Testing::FakeProvider::USAGE)
       end
     end
 
@@ -59,7 +59,7 @@ RSpec.describe Inquirex::LLM::Evals::Adapter do
     end
 
     context "when the transport fails" do
-      let(:model) { Agent::Evals::Testing::FakeModel.new(answers: ->(_) { raise IOError, "connection reset" }) }
+      let(:model) { LLM::Evals::Testing::FakeModel.new(answers: ->(_) { raise IOError, "connection reset" }) }
 
       it "raises, so the run counts an error rather than a wrong answer" do
         expect { reply }.to raise_error(IOError, /connection reset/)
@@ -90,7 +90,7 @@ RSpec.describe Inquirex::LLM::Evals::Adapter do
 
   describe "#root" do
     it "is the configured suite's root when none is given" do
-      allow(Agent::Evals.configuration).to receive(:root).and_return("/elsewhere")
+      allow(LLM::Evals.configuration).to receive(:root).and_return("/elsewhere")
       expect(described_class.new.root).to eq("/elsewhere")
     end
   end

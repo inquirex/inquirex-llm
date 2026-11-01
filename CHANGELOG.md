@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.2 (unreleased)
+
+- **The eval suite now runs on llm-evals.** `inquirex/llm/evals` requires `llm/evals` and subclasses `::LLM::Evals`, because `agent-evals` was renamed and is no longer on RubyGems. The config file is `evals/.llm-evals.config.yml` and the executable is `evals`. Inside `Inquirex::LLM`, a bare `LLM` means this gem, so the leading `::` is required.
+
 ## 0.12.0 (unreleased)
 
 Hand-written until `github_changelog_generator` regenerates this file at release. The family-wide notes are in inquirex's `INQUIREX_VERSION_LOG.md`.

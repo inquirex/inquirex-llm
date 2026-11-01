@@ -487,15 +487,15 @@ end
 
 ## Evals
 
-Which model extracts best, measured with this gem's own prompts: ten flows, a complete and a vague text each, run on [agent-evals](https://github.com/kigster/agent-evals). The lineup and the data live in [`evals/`](evals/README.md); the adapter and the scorer are `Inquirex::LLM::Evals`, loaded only by `require "inquirex/llm/evals"`.
+Which model extracts best, measured with this gem's own prompts: ten flows, a complete and a vague text each, run on [llm-evals](https://github.com/kigster/llm-evals). The lineup and the data live in [`evals/`](evals/README.md); the adapter and the scorer are `Inquirex::LLM::Evals`, loaded only by `require "inquirex/llm/evals"`.
 
 How a run works:
 
 1. **Verify** (offline): each dataset's `schema.rb` must match the `extract` step in its `dsl.rb`, and every `expected.json` must fit that schema.
-1. **Expand the lineup**: every model under `vendors:` in `evals/.agent-eval.config.yml`, times each `effort`/`temperature` it lists, becomes one contender. Each contender runs every case.
+1. **Expand the lineup**: every model under `vendors:` in `evals/.llm-evals.config.yml`, times each `effort`/`temperature` it lists, becomes one contender. Each contender runs every case.
 1. **Call the model**: one OpenRouter chat completion per case, built from this gem's production prompt and the step's schema.
 1. **Score the raw reply** field by field: `correct` 1.0, `missed` 0.2, `hallucinated` 0.15, `incorrect` 0.1, `invalid` 0. A case's score is the mean over its fields. The rules are in [`evals/README.md`](evals/README.md#scoring).
-1. **Report**: a leaderboard on screen and a JSON log under `log/agent-evals/`. If `BRAINTRUST_API_KEY` or `LOGFIRE_TOKEN` is set, each case is also sent to that one tracker; `--local` turns that off.
+1. **Report**: a leaderboard on screen and a JSON log under `log/llm-evals/`. If `BRAINTRUST_API_KEY` or `LOGFIRE_TOKEN` is set, each case is also sent to that one tracker; `--local` turns that off.
 
 ```bash
 just evals -n                       # the whole matrix, calling nothing
@@ -503,8 +503,8 @@ just evals                          # every configured model on every dataset
 just evals --local -d 05-managed-it-services   # one dataset, no remote tracker
 just evals-verify                   # step 1 only
 
-bundle exec agent-evals cases       # the 20 cases
-bundle exec agent-evals run -m openai/gpt-4o-mini   # one model, per-case breakdown
+bundle exec evals cases       # the 20 cases
+bundle exec evals run -m openai/gpt-4o-mini   # one model, per-case breakdown
 ```
 
 `just evals` needs `OPENROUTER_API_KEY` and the `:evals` bundle group. It is a paid run: 14 contenders × 20 cases = 280 calls.

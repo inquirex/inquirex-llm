@@ -13,36 +13,36 @@ module Inquirex
       # share the model answered anyway; it is nil when the truth has no
       # null, so a dataset of complete texts neither earns nor loses by it.
       # `invalid_rate` is the share of fields the schema would reject.
-      class Scorer < Agent::Evals::Scorer
+      class Scorer < ::LLM::Evals::Scorer
         METRICS = [
-          Agent::Evals::Metric.new(name: "score",
+          ::LLM::Evals::Metric.new(name: "score",
             primary: true,
             description: "Mean field value: correct 1.0, missed 0.2, hallucinated 0.15, incorrect 0.1, invalid 0; " \
                          "a multi_enum is the mean of its elements."),
-          Agent::Evals::Metric.new(name: "exact", description: "1 when every field is correct."),
-          Agent::Evals::Metric.new(name: "hallucinated_rate",
+          ::LLM::Evals::Metric.new(name: "exact", description: "1 when every field is correct."),
+          ::LLM::Evals::Metric.new(name: "hallucinated_rate",
             description: "Of the fields the text never answers (truth null), the share the model answered anyway; " \
                          "nothing recorded when the truth has no null."),
-          Agent::Evals::Metric.new(name: "invalid_rate",
+          ::LLM::Evals::Metric.new(name: "invalid_rate",
             description: "Share of fields whose value the schema does not allow: off the list, wrong type.")
         ].freeze
 
-        # How the gem's field types read to {Agent::Evals::SchemaValidator}.
+        # How the gem's field types read to {LLM::Evals::SchemaValidator}.
         VALIDATOR_TYPES = { enum: :enum, multi_enum: :multi_enum, integer: :integer, boolean: :boolean,
                             decimal: :number, currency: :number }.freeze
 
-        # @return [Array<Agent::Evals::Metric>]
+        # @return [Array<LLM::Evals::Metric>]
         def metrics = METRICS
 
-        # @param kase [Agent::Evals::Case]
-        # @param reply [Agent::Evals::Reply]
+        # @param kase [LLM::Evals::Case]
+        # @param reply [LLM::Evals::Reply]
         # @param context [Hash] `:schema`, the {Inquirex::LLM::Schema} the dataset extracts
-        # @return [Agent::Evals::Score]
+        # @return [LLM::Evals::Score]
         def call(kase, reply, context:)
           schema = context.fetch(:schema)
           fields = field_scores(schema, kase.expected, reply.raw)
           open = fields.select { kase.expected[it.field].nil? }
-          Agent::Evals::Score.new(
+          ::LLM::Evals::Score.new(
             value:       mean(fields.map(&:value)),
             metrics:     { "score"             => mean(fields.map(&:value)),
                            "exact"             => fields.all?(&:correct?) ? 1.0 : 0.0,
@@ -74,7 +74,7 @@ module Inquirex
         # Checks expected.json against the schema, every field nullable: a
         # null is how the truth says the text never answers it.
         #
-        # @param kase [Agent::Evals::Case]
+        # @param kase [LLM::Evals::Case]
         # @param context [Hash]
         # @return [Array<String>] unknown keys, missing keys, off-list values, wrong types
         def verify(kase, context:)
@@ -82,10 +82,10 @@ module Inquirex
           fields = schema.field_specs.to_h do |name, spec|
             [name.to_s, { type: VALIDATOR_TYPES.fetch(spec.type, :string), enum: spec.values, nullable: true }]
           end
-          Agent::Evals::SchemaValidator.new(fields).problems(kase.expected)
+          ::LLM::Evals::SchemaValidator.new(fields).problems(kase.expected)
         end
 
-        # @param kase [Agent::Evals::Case]
+        # @param kase [LLM::Evals::Case]
         # @return [String] "answered 7/10"
         def summary(kase)
           return nil unless kase.expected.is_a?(Hash)

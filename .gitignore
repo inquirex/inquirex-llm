@@ -21,3 +21,6 @@
 *.private
 *.public
 /log/*
+
+# llm-evals saves each run here
+/evals/results/

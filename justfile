@@ -56,18 +56,18 @@ test-coverage *args:
 
 check-all: install lint test-coverage
 
-# Every model in evals/.agent-eval.config.yml against every dataset, through
-# agent-evals. Extra flags pass through: `just evals -n` shows the matrix and
+# Every model in evals/.llm-evals.config.yml against every dataset, through
+# llm-evals. Extra flags pass through: `just evals -n` shows the matrix and
 # calls nothing, `just evals --local` skips the remote tracker, `just evals -d
 # 05-managed-it-services` narrows to one dataset. Needs OPENROUTER_API_KEY.
 #
 # Run all extraction evals for every configured model
 evals *args: 
-    {{ rbenv_init }}; bundle exec agent-evals compare --config evals/.agent-eval.config.yml {{ args }}
+    {{ rbenv_init }}; bundle exec evals compare --config evals/.llm-evals.config.yml {{ args }}
 
 # Check schemas, inputs and expected answers offline, with no model calls
 evals-verify:
-    {{ rbenv_init }}; cd evals && agent-evals verify --config .agent-eval.config.yml
+    {{ rbenv_init }}; cd evals && evals verify --config .llm-evals.config.yml
 
 clean:
     #!/usr/bin/env bash
