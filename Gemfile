@@ -9,19 +9,19 @@ group :development, :test do
   gem "rake"
 
   gem "rspec"
-  gem "simplecov"
   gem "rspec-its"
+  gem "simplecov"
 
   gem "bundle-audit"
+  gem "coverage-badge"
   gem "rubocop"
   gem "rubocop-rspec"
-  gem "coverage-badge"
 
   gem "yard"
 end
 
 group :evals do
-  gem "agent-evals", "~> 0.2.0"
   gem "braintrust", require: "braintrust/setup"
+  gem "llm-evals", "~> 0.4.0"
   gem "ruby_llm", "= 2.1.1"
 end

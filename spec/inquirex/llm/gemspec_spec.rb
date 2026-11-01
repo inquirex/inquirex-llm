@@ -13,8 +13,8 @@ RSpec.describe "inquirex-llm.gemspec" do
 
   # Every feature lib/ requires, other than this gem family's own files.
   # lib/inquirex/llm/evals is the eval suite's code: loaded only by
-  # `require "inquirex/llm/evals"` from evals/.agent-eval.config.yml, it may
-  # require agent-evals, which the gem does not depend on. The example below
+  # `require "inquirex/llm/evals"` from evals/.llm-evals.config.yml, it may
+  # require llm-evals, which the gem does not depend on. The example below
   # proves the gem's own require never reaches it.
   let(:features) do
     Dir[File.join(root, "lib/**/*.rb")]
@@ -41,10 +41,10 @@ RSpec.describe "inquirex-llm.gemspec" do
     expect(undeclared).to be_empty
   end
 
-  it "does not load the eval suite, or agent-evals, with the gem" do
-    # Bundler itself evaluates agent-evals' gemspec, which loads its version.rb; anything more is a leak.
+  it "does not load the eval suite, or llm-evals, with the gem" do
+    # Bundler itself evaluates llm-evals' gemspec, which loads its version.rb; anything more is a leak.
     script = 'require "inquirex-llm"; ' \
-             "exit(defined?(Inquirex::LLM::Evals) || $LOADED_FEATURES.grep(%r{inquirex/llm/evals|agent/evals\\.rb}).any? ? 1 : 0)"
+             "exit(defined?(Inquirex::LLM::Evals) || $LOADED_FEATURES.grep(%r{inquirex/llm/evals|llm/evals\\.rb}).any? ? 1 : 0)"
     expect(system(RbConfig.ruby, "-rbundler/setup", "-e", script)).to be(true)
   end
 

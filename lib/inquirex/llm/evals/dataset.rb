@@ -6,7 +6,7 @@ module Inquirex
       # What one dataset folder shares across its cases: the flow in dsl.rb,
       # whose single `extract` step supplies the prompt and the schema, and
       # schema.rb, that schema copied out verbatim so a change to either is
-      # caught by `agent-evals verify` instead of silently moving the scores.
+      # caught by `evals verify` instead of silently moving the scores.
       #
       #   evals/datasets/05-managed-it-services/
       #     dsl.rb                       the flow, loaded with unsafe: true (a file we author)
@@ -61,7 +61,7 @@ module Inquirex
         # @return [Symbol]
         def source_step = node.from_steps.first
 
-        # Offline checks of the shared files, for `agent-evals verify`.
+        # Offline checks of the shared files, for `evals verify`.
         #
         # @return [Array<String>] problems; empty when the dataset is sound
         def problems

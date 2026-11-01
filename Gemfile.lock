@@ -1,23 +1,12 @@
 PATH
   remote: .
   specs:
-    inquirex-llm (0.12.1)
+    inquirex-llm (0.12.2)
       inquirex (~> 0.12.1)
 
 GEM
   remote: https://rubygems.org/
   specs:
-    agent-evals (0.2.0)
-      dotenv (~> 3.2)
-      dry-cli (~> 1.4)
-      dry-cli-autocomplete (~> 0.6)
-      dry-cli-help (~> 0.6)
-      dry-cli-ui (~> 0.7)
-      logger (~> 1.6)
-      pastel (~> 0.8)
-      tty-box (~> 0.7)
-      tty-table (~> 0.12)
-      zeitwerk (~> 2.8)
     ast (2.4.3)
     base64 (0.3.0)
     bigdecimal (4.1.3)
@@ -82,6 +71,18 @@ GEM
     json (3.1.0)
     language_server-protocol (3.17.0.6)
     lint_roller (1.1.0)
+    llm-evals (0.4.0)
+      dotenv (~> 3.2)
+      dry-cli (~> 1.4)
+      dry-cli-autocomplete (~> 0.6)
+      dry-cli-help (~> 0.6)
+      dry-cli-ui (~> 0.7)
+      logger (~> 1.6)
+      pastel (~> 0.8)
+      ruby_llm (~> 2.1)
+      tty-box (~> 0.7)
+      tty-table (~> 0.12)
+      zeitwerk (~> 2.8)
     logger (1.7.0)
     marcel (2.1.0)
     multipart-post (2.4.1)
@@ -223,11 +224,11 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  agent-evals (~> 0.2.0)
   braintrust
   bundle-audit
   coverage-badge
   inquirex-llm!
+  llm-evals (~> 0.4.0)
   rake
   rspec
   rspec-its
@@ -238,7 +239,6 @@ DEPENDENCIES
   yard
 
 CHECKSUMS
-  agent-evals (0.2.0) sha256=4aa9a7db08cb3180db3285375f3e0fbeded9ed8014f9b283c6f08e59971ae499
   ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   bigdecimal (4.1.3) sha256=61ebe1e5e559bdc3cc6f2c0ee7f427321fc838f59611c294356eb04d6e21cf66
@@ -264,10 +264,11 @@ CHECKSUMS
   google-protobuf (4.36.2) sha256=2f8daff50ae14aad36ab0ccdcf284065fa71d726c444efe114e6db82ffe62494
   googleapis-common-protos-types (1.23.0) sha256=992e740a523794d9fc5f29a504465d8fc737aaa16c930fe7228e3346860faf0a
   inquirex (0.12.1) sha256=ec9bda0f2de064935144c4ec258c81b939c6883dfbe3a58ef6a6568c909b075e
-  inquirex-llm (0.12.1)
+  inquirex-llm (0.12.2)
   json (3.1.0) sha256=3ce7ccf8fde58960177a3a756c31f292a4c1e1dedee884547096a5b0604e3bd8
   language_server-protocol (3.17.0.6) sha256=5ef2c0c138f8267e1bc631d3328347d354f96724b0af22f2c79516120443b7f0
   lint_roller (1.1.0) sha256=2c0c845b632a7d172cb849cc90c1bce937a28c5c8ccccb50dfd46a485003cc87
+  llm-evals (0.4.0) sha256=ddbac6b2d046423200792da8b23081fb28248559e0f5db76a47836735760c209
   logger (1.7.0) sha256=196edec7cc44b66cfb40f9755ce11b392f21f7967696af15d274dde7edff0203
   marcel (2.1.0) sha256=f8b0327111dc7e516331eeefe052e981ce50e2bd826c1042a53cdf047fcc3512
   multipart-post (2.4.1) sha256=9872d03a8e552020ca096adadbf5e3cb1cd1cdd6acd3c161136b8a5737cdb4a8
