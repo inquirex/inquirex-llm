@@ -24,3 +24,4 @@
 
 # llm-evals saves each run here
 /evals/results/
+.ruby-version
