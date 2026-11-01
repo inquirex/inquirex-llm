@@ -4,7 +4,7 @@ module Inquirex
   module LLM
     module Evals
       # The gem's {OpenAIAdapter} with its transport swapped for an
-      # llm-evals {LLM::Evals::Model}. Everything the model sees and
+      # llm-evals {LLM::Evals::Models::Model}. Everything the model sees and
       # everything done to its answer is production's: the system prompt,
       # the schema contract, the user prompt built from the step's `from`
       # answers, fence stripping, JSON parsing and the canonicalization of
@@ -18,13 +18,13 @@ module Inquirex
         # OpenAIAdapter insists on a key; the eval model holds the real one.
         NO_KEY = "(unused: the eval model carries its own key)"
 
-        # @return [LLM::Evals::Completion, nil] what the model answered, once asked
+        # @return [LLM::Evals::Results::ProviderResponse, nil] what the model answered, once asked
         attr_reader :completion
 
         # @return [Hash{Symbol => String}, nil] the system and user prompts, once sent
         attr_reader :prompt
 
-        # @param model [LLM::Evals::Model]
+        # @param model [LLM::Evals::Models::Model]
         def initialize(model)
           super(api_key: NO_KEY, model: model.id)
           @model = model

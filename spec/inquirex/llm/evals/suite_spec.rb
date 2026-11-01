@@ -29,7 +29,7 @@ RSpec.describe "the extraction eval suite" do
   end
 
   it "resolves the adapter and the scorer from the config file alone" do
-    expect(LLM::Evals::Helper.locate(from: root).config).to eq(File.join(root, "evals", ".llm-evals.config.yml"))
+    expect(LLM::Evals::Runtime::Helper.locate(from: root).config).to eq(File.join(root, "evals", ".llm-evals.config.yml"))
     configuration = LLM::Evals.configuration.require_suite!
     expect(configuration.adapter).to be_a(Inquirex::LLM::Evals::Adapter)
     expect(configuration.scorer).to be_a(Inquirex::LLM::Evals::Scorer)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.3
+
+- Use the module-scoped constants of llm-evals 0.5.0 (`LLM::Evals::Actions::Adapter`, `Scoring::Scorer` and so on). The suite needs llm-evals `~> 0.5.0`.
+
 ## 0.12.2 (unreleased)
 
 - **The eval suite now runs on llm-evals.** `inquirex/llm/evals` requires `llm/evals` and subclasses `::LLM::Evals`, because `agent-evals` was renamed and is no longer on RubyGems. The config file is `evals/.llm-evals.config.yml` and the executable is `evals`. Inside `Inquirex::LLM`, a bare `LLM` means this gem, so the leading `::` is required.

@@ -22,6 +22,6 @@ end
 
 group :evals do
   gem "braintrust", require: "braintrust/setup"
-  gem "llm-evals", "~> 0.4.0"
+  gem "llm-evals", "~> 0.5.0"
   gem "ruby_llm", "= 2.1.1"
 end

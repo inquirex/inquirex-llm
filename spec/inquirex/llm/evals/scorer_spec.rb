@@ -21,8 +21,8 @@ RSpec.describe Inquirex::LLM::Evals::Scorer do
   end
   let(:context) { { schema: schema } }
 
-  def kase(expected) = LLM::Evals::Case.new(id: "x", dataset: "d", variant: "x", input: "t", expected: expected, path: "/", metadata: {})
-  def reply(raw) = LLM::Evals::Reply.new(output: raw, raw: raw)
+  def kase(expected) = LLM::Evals::Datasets::Case.new(id: "x", dataset: "d", variant: "x", input: "t", expected: expected, path: "/", metadata: {})
+  def reply(raw) = LLM::Evals::Results::Reply.new(output: raw, raw: raw)
   def score(spec, truth, got, present: true) = Inquirex::LLM::Evals::FieldScore.of("f", spec, truth, got, present: present)
 
   describe "one field" do
