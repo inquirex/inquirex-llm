@@ -9,9 +9,9 @@ module Inquirex
       # canonicalized by the gem. It never scores; {Scorer} does that.
       #
       # A reply that is not a JSON object is the model's failure and comes
-      # back as a {LLM::Evals::Reply} with `error` set. A transport failure
+      # back as a {LLM::Evals::Results::Reply} with `error` set. A transport failure
       # raises, and the run counts it as an error rather than a wrong answer.
-      class Adapter < ::LLM::Evals::Adapter
+      class Adapter < ::LLM::Evals::Actions::Adapter
         # Recorded with every experiment: which prompt the models saw.
         PROMPT = "Inquirex::LLM::OpenAIAdapter"
 
@@ -36,14 +36,14 @@ module Inquirex
           set.schema
         end
 
-        # @param kase [LLM::Evals::Case]
-        # @param model [LLM::Evals::Model]
-        # @return [LLM::Evals::Reply]
+        # @param kase [LLM::Evals::Datasets::Case]
+        # @param model [LLM::Evals::Models::Model]
+        # @return [LLM::Evals::Results::Reply]
         def call(kase, model:)
           set = dataset(kase.dataset)
           adapter = ModelAdapter.new(model)
           extraction = adapter.call(set.node, { set.source_step => kase.input })
-          ::LLM::Evals::Reply.new(
+          ::LLM::Evals::Results::Reply.new(
             output:   extraction.output.transform_keys(&:to_s),
             raw:      extraction.raw.transform_keys(&:to_s),
             usage:    adapter.completion.usage,
@@ -52,13 +52,13 @@ module Inquirex
         rescue Errors::AdapterError => e
           raise if adapter.completion.nil? # nothing was asked: not the model's doing
 
-          ::LLM::Evals::Reply.new(error: e.message.lines.first.strip,
+          ::LLM::Evals::Results::Reply.new(error: e.message.lines.first.strip,
             raw: adapter.completion.text,
             usage: adapter.completion.usage,
             metadata: { prompt: adapter.prompt })
         end
 
-        # @param kase [LLM::Evals::Case]
+        # @param kase [LLM::Evals::Datasets::Case]
         # @return [Hash] the schema the scorer grades against
         def context(kase) = { schema: dataset(kase.dataset).schema }
 

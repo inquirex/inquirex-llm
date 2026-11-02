@@ -6,7 +6,7 @@ RSpec.describe Inquirex::LLM::Evals::Adapter do
   subject(:adapter) { described_class.new(root: root) }
 
   let(:root) { File.expand_path("../../../../evals", __dir__) }
-  let(:discovery) { LLM::Evals::Discovery.new(root: root) }
+  let(:discovery) { LLM::Evals::Datasets::Discovery.new(root: root) }
   let(:kase) { discovery.cases(dataset: "05-managed-it-services", only: ["complete"]).first }
   let(:answer) { JSON.generate(kase.expected.merge("compliance" => ["HIPAA"], "work_model" => "office")) }
   let(:model) { LLM::Evals::Testing::FakeModel.new(answers: ->(_user) { answer }) }
