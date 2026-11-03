@@ -18,6 +18,8 @@ group :development, :test do
   gem "rubocop-rspec"
 
   gem "yard"
+  gem "llm-evals", "~> 0.5.0"
+  gem "ruby_llm", "= 2.1.1"
 end
 
 group :evals do
