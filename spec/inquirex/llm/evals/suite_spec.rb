@@ -40,7 +40,9 @@ RSpec.describe "the extraction eval suite" do
     rows = out.string.lines.grep(/complete|vague/)
     expect(rows.size).to eq(20)
     expect(out.string).to include("05-managed-it-services", "answered 10/10", "answered 5/10")
-    expect(err.string).to be_empty
+    # llm-evals >= 0.5 always names the config it found on stderr; anything else there is a warning.
+    expect(err.string).to include("Evals configuration")
+    expect(err.string).not_to match(/warn|error/i)
   end
 
   it "verifies every case" do
