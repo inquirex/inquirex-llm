@@ -193,19 +193,20 @@ Write the prompt by hand when you need domain framing the questions don't carry 
 
 ## DSL Methods (inside LLM verb blocks)
 
-| Method                          | Purpose                                              | Required                                                   |
-| ------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------- |
-| `prompt "..."` / `prompt :auto` | LLM prompt template, or generated from question refs | `extract`; **rejected** on `summarize`                     |
-| `schema :question_id, ...`      | Fields resolved from questions (types + options)     | `extract` (this or keywords); **rejected** on `summarize`  |
-| `schema key: :type, ...`        | Explicit field => type pairs                         | `extract` (this or refs); **rejected** on `summarize`      |
-| `from :step_id`                 | Source step(s) whose answers feed the LLM            | `extract` (or use `from_all`); **rejected** on `summarize` |
-| `from_all`                      | Pass all collected answers to the LLM                | Alternative to `from`; **rejected** on `summarize`         |
-| `model :claude_sonnet`          | Optional model hint for the adapter                  | No                                                         |
-| `temperature 0.3`               | Optional sampling temperature                        | No                                                         |
-| `max_tokens 1024`               | Optional max output tokens                           | No                                                         |
-| `fallback { \|answers\| ... }`  | Server-side fallback (stripped from JSON)            | No                                                         |
-| `transition to: :step`          | Conditional transition (same as core)                | No; **rejected** on `summarize`                            |
-| `skip_if rule`                  | Skip step when condition is true                     | No                                                         |
+| Method                                          | Purpose                                                                                                                 | Required                                                   |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `prompt "..."` / `prompt :auto`                 | LLM prompt template, or generated from question refs                                                                    | `extract`; **rejected** on `summarize`                     |
+| `schema :question_id, ...`                      | Fields resolved from questions (types + options)                                                                        | `extract` (this or keywords); **rejected** on `summarize`  |
+| `schema key: :type, ...`                        | Explicit field => type pairs                                                                                            | `extract` (this or refs); **rejected** on `summarize`      |
+| `from :step_id`                                 | Source step(s) whose answers feed the LLM                                                                               | `extract` (or use `from_all`); **rejected** on `summarize` |
+| `from_all`                                      | Pass all collected answers to the LLM                                                                                   | Alternative to `from`; **rejected** on `summarize`         |
+| `model :claude_sonnet`                          | Optional model hint for the adapter                                                                                     | No                                                         |
+| `use_first_available_model "vendor/model", ...` | Models this step prefers, best first; the first one a usable vendor serves is used. Overrides `model`. Server-side only | No                                                         |
+| `temperature 0.3`                               | Optional sampling temperature                                                                                           | No                                                         |
+| `max_tokens 1024`                               | Optional max output tokens                                                                                              | No                                                         |
+| `fallback { \|answers\| ... }`                  | Server-side fallback (stripped from JSON)                                                                               | No                                                         |
+| `transition to: :step`                          | Conditional transition (same as core)                                                                                   | No; **rejected** on `summarize`                            |
+| `skip_if rule`                                  | Skip step when condition is true                                                                                        | No                                                         |
 
 `summarize` rejects the content-shaping methods rather than ignoring them — see [`summarize`](#summarize) for each refusal and its reason.
 
@@ -238,6 +239,53 @@ result = adapter.call(engine.current_step)
 # => { industry: "", employee_count: 0, revenue: 0.0 }
 ```
 
+## Model routing (0.13.0+)
+
+Different steps want different models: an eval run (see [Evals](#evals)) may show that DeepSeek wins one dataset and Claude Haiku another. Routing lets the host list the vendors and models it prefers once, and lets each LLM step name its own ordered list. The full reasoning is in [docs/decisions/prioritized-model-selection.md](docs/decisions/prioritized-model-selection.md).
+
+Models are always named the OpenRouter way, `"vendor/model"`: `"openai/gpt-4.1-mini"`, `"anthropic/claude-haiku-5.5"`, `"deepseek/deepseek-v4.1-flash"`.
+
+```ruby
+Inquirex::LLM.configure do |c|
+  c.llm_vendors_priority        = %i[openrouter openai anthropic typesafe]
+  c.llm_models_priority         = %w[deepseek/deepseek-v4.1-flash anthropic/claude-haiku-5.5]
+  c.dsl_can_reprioritize        = true # default: a step's own order wins
+  c.dsl_can_use_unlisted_models = true # default: a step may name models not listed above
+end.ensure_provider_models!
+```
+
+`ensure_provider_models!` runs once per process (it also runs lazily on the first routed call):
+
+1. Drops every vendor whose API key is not set, warning in yellow on stderr.
+1. Downloads each remaining vendor's model catalog, all at once. A vendor whose catalog fails is dropped for the life of the process.
+1. If anything was dropped, prints the surviving vendors in green. If none survive, raises `Errors::MissingProviderAPIKeysError`.
+1. Drops every model in `llm_models_priority` that no surviving vendor serves. If none is left, raises `Errors::NoAvailableModelsError`.
+
+Who serves a model: OpenRouter serves anything its catalog lists; OpenAI and Anthropic serve their own models natively (`anthropic/claude-haiku-5.5` is sent to Anthropic as `claude-haiku-5-5`); TypeSafe serves `typesafe/jev-*` for `extract` steps whose every field Jev can answer. When several vendors could serve a model, `llm_vendors_priority` decides.
+
+A step names its own models with `use_first_available_model`:
+
+```ruby
+extract :facts do
+  from :situation
+  prompt "Extract the filing details."
+  schema filing_status: :string, dependents: :integer
+  use_first_available_model "deepseek/deepseek-v4.1-flash", "anthropic/claude-haiku-5.5"
+end
+```
+
+At call time the first model a usable vendor serves is used; if none is, the step falls back to `llm_models_priority` with one warning. A step with no list uses `llm_models_priority`; an old `model :claude_sonnet` hint counts as a one-entry list. The list never appears in the JSON wire format: the server reads it from the definition it loaded.
+
+Call the step through the routing facade:
+
+```ruby
+Inquirex::LLM.route(node)                         # => Routing::Route(model:, provider:, native_id:, adapter:)
+Inquirex::LLM.extract(node, engine.answers)       # => Extraction
+Inquirex::LLM.summarize(node, transcript, answers) # => markdown String
+```
+
+Without `llm_vendors_priority`, routing is off and these three use `Inquirex::LLM.adapter`, exactly as before.
+
 ## Configuration
 
 Model ids, the provider and its credentials are set in one place, `Inquirex::LLM.configuration`. Each setting is read from its environment variable when that variable is set and not blank, and otherwise takes the default below. The adapters fall back on it whenever no `api_key:` or `model:` is passed and a node sets no `max_tokens` or `temperature` of its own.
@@ -260,6 +308,8 @@ Model ids, the provider and its credentials are set in one place, `Inquirex::LLM
 | `INQUIREX_DEBUG`                   | `debug`               | off; any non-blank value turns it on                                   |
 
 An invalid value (an unknown provider, a token count that is not a positive integer, a temperature outside 0 to 2) raises `Inquirex::LLM::Errors::ConfigurationError` naming the variable. `to_h` and `inspect` print every `*_api_key` as `[REDACTED]`.
+
+The single-provider settings (`provider`, the `*_model` settings and `Inquirex::LLM.adapter`) are **deprecated** since 0.13.0 in favour of [Model routing](#model-routing-0130); they keep working unchanged.
 
 ENV is read once, on first use. Code can override any setting afterwards; `nil` restores the default:
 

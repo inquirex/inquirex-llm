@@ -170,6 +170,20 @@ RSpec.describe Inquirex::LLM::Adapter, "#summarize" do
       expect(result).to eq("## Summary\n\nYou asked about a vehicle.")
     end
 
+    # OpenAI answers 400 to a json_object request whose messages never say
+    # "json", and a summary is markdown anyway.
+    it "does not ask for a JSON response" do
+      captured = nil
+      allow(http).to receive(:request) do |req|
+        captured = JSON.parse(req.body)
+        ok("## Summary")
+      end
+
+      adapter.summarize(node, transcript)
+
+      expect(captured).not_to have_key("response_format")
+    end
+
     it "raises rather than returning an empty summary" do
       allow(http).to receive(:request).and_return(ok(""))
       expect { adapter.summarize(node, transcript) }

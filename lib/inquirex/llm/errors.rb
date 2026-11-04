@@ -18,6 +18,14 @@ module Inquirex
       # Raised when a configuration value, from ENV or a writer, is invalid.
       # The message names the variable or attribute that carried it.
       class ConfigurationError < Error; end
+
+      # Raised by {LLM.ensure_provider_models!} when no vendor in
+      # llm_vendors_priority has its API key set and a reachable catalog.
+      class MissingProviderAPIKeysError < ConfigurationError; end
+
+      # Raised when no model in llm_models_priority is served by a usable
+      # vendor, or when no model at all can serve a given step.
+      class NoAvailableModelsError < ConfigurationError; end
     end
   end
 end

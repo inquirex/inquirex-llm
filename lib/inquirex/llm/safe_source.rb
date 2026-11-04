@@ -71,6 +71,7 @@ module Inquirex
         v.allow(:llm_step, :from, positional: { repeat: :symbol })
         v.allow(:llm_step, :from_all, positional: { optional: :literal })
         v.allow(:llm_step, :model, positional: %i[symbol])
+        v.allow(:llm_step, :use_first_available_model, positional: { repeat: :literal, min: 1 })
         v.allow(:llm_step, :temperature, positional: %i[literal])
         v.allow(:llm_step, :max_tokens, positional: %i[literal])
         v.allow(:llm_step, :question, positional: %i[string])

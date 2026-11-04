@@ -21,6 +21,8 @@ require "inquirex"
 require "inquirex/llm"
 require "rspec/its"
 
+Dir[File.join(__dir__, "support", "*.rb")].each { require it }
+
 # Sets ENV variables for the duration of a block (nil deletes one), and
 # rebuilds Inquirex::LLM.configuration on the way in and out, since it reads
 # ENV only once. Restores every variable it touched, even on failure.

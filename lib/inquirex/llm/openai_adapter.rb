@@ -44,12 +44,13 @@ module Inquirex
 
       # @param node [Inquirex::LLM::Node] the current LLM step
       # @param answers [Hash] all collected answers so far
+      # @param model [String, nil] model id to use instead of the node's hint (set by routing)
       # @return [Extraction] the schema-shaped values, with the model's raw JSON and the usage
       # @raise [Errors::AdapterError] on API / parse failures
       # @raise [Errors::SchemaViolationError] when the LLM output misses schema fields
-      def call(node, answers = {})
+      def call(node, answers = {}, model: nil)
         source      = source_answers(node, answers)
-        model       = resolve_model(node)
+        model     ||= resolve_model(node)
         temperature = node.respond_to?(:temperature) ? (node.temperature || config.temperature) : config.temperature
         max_tokens  = node.respond_to?(:max_tokens)  ? (node.max_tokens  || config.max_tokens) : config.max_tokens
 
@@ -76,15 +77,17 @@ module Inquirex
       # @param node [Inquirex::LLM::Node] the summarize step
       # @param transcript [String] the session transcript
       # @param answers [Hash] unused; accepted for interface symmetry
+      # @param model [String, nil] model id to use instead of the node's hint (set by routing)
       # @return [String] markdown summary
       # @raise [Errors::AdapterError] on API / parse failures
-      def summarize(node, transcript, _answers = {})
+      def summarize(node, transcript, _answers = {}, model: nil)
         response = call_api(
-          model:       resolve_model(node),
+          model:       model || resolve_model(node),
           system:      Prompts::SUMMARIZE,
           user:        summary_input(transcript),
           temperature: node.respond_to?(:temperature) ? (node.temperature || config.summary_temperature) : config.summary_temperature,
-          max_tokens:  node.respond_to?(:max_tokens) ? (node.max_tokens || config.summary_max_tokens) : config.summary_max_tokens
+          max_tokens:  node.respond_to?(:max_tokens) ? (node.max_tokens || config.summary_max_tokens) : config.summary_max_tokens,
+          json:        false
         )
         parse_text_response(response)
       end
@@ -152,21 +155,23 @@ module Inquirex
 
       # The request body. Subclasses add provider-specific fields here.
       #
+      # @param json [Boolean] ask for a JSON object; false for prose, since
+      #   OpenAI rejects json_object when the messages never mention JSON
       # @return [Hash]
-      def request_body(model:, system:, user:, temperature:, max_tokens:)
-        {
-          model:           model,
-          max_tokens:      max_tokens,
-          temperature:     temperature,
-          response_format: { type: "json_object" },
-          messages:        [
+      def request_body(model:, system:, user:, temperature:, max_tokens:, json: true)
+        body = {
+          model:       model,
+          max_tokens:  max_tokens,
+          temperature: temperature,
+          messages:    [
             { role: "system", content: system },
             { role: "user",   content: user }
           ]
         }
+        json ? body.merge(response_format: { type: "json_object" }) : body
       end
 
-      def call_api(model:, system:, user:, temperature:, max_tokens:)
+      def call_api(model:, system:, user:, temperature:, max_tokens:, json: true)
         uri = URI(api_url)
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = true
@@ -177,7 +182,7 @@ module Inquirex
         request["Content-Type"]  = "application/json"
         request["Authorization"] = "Bearer #{@api_key}"
         request.body = JSON.generate(
-          request_body(model: model, system: system, user: user, temperature: temperature, max_tokens: max_tokens)
+          request_body(model:, system:, user:, temperature:, max_tokens:, json:)
         )
 
         warn "[inquirex-llm] Calling #{provider_name} #{model}..." if config.debug?
