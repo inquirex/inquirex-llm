@@ -92,6 +92,16 @@ GEM
     inquirex (0.12.1)
       ostruct (~> 0.6)
       prism (>= 1.7, < 2)
+    inquirex-tty (0.12.1)
+      dry-cli (~> 1.0)
+      inquirex (~> 0.12)
+      inquirex-llm (~> 0.12)
+      ostruct (~> 0.6)
+      pastel (~> 0.8)
+      tty-box (~> 0.7)
+      tty-font (~> 0.5)
+      tty-prompt (~> 0.23)
+      tty-screen (~> 0.8)
     json (3.1.0)
     language_server-protocol (3.17.0.6)
     lint_roller (1.1.0)
@@ -220,6 +230,7 @@ GEM
       tty-cursor (~> 0.7)
     tty-color (0.6.0)
     tty-cursor (0.7.1)
+    tty-font (0.5.0)
     tty-progressbar (0.18.3)
       strings-ansi (~> 0.2)
       tty-cursor (~> 0.7)
@@ -262,6 +273,7 @@ DEPENDENCIES
   bundle-audit
   coverage-badge
   inquirex-llm!
+  inquirex-tty
   llm-evals (~> 0.5.0)
   rake
   rspec
@@ -307,6 +319,7 @@ CHECKSUMS
   googleapis-common-protos-types (1.25.0) sha256=3eac7998e9e52f506d5a68d944284b8d2f6d65d744ab92a0cdd269198a009d15
   inquirex (0.12.1) sha256=ec9bda0f2de064935144c4ec258c81b939c6883dfbe3a58ef6a6568c909b075e
   inquirex-llm (0.13.0)
+  inquirex-tty (0.12.1) sha256=083f36b502f65c1f110c7a8bd778d81e4253b03732003a45e2f12c22aed2b0e0
   json (3.1.0) sha256=3ce7ccf8fde58960177a3a756c31f292a4c1e1dedee884547096a5b0604e3bd8
   language_server-protocol (3.17.0.6) sha256=5ef2c0c138f8267e1bc631d3328347d354f96724b0af22f2c79516120443b7f0
   lint_roller (1.1.0) sha256=2c0c845b632a7d172cb849cc90c1bce937a28c5c8ccccb50dfd46a485003cc87
@@ -355,6 +368,7 @@ CHECKSUMS
   tty-box (0.7.0) sha256=17f453a0c1df43871fdb6de461ee797b78574dacc652372fa2ae98a00785df8b
   tty-color (0.6.0) sha256=6f9c37ca3a4e2367fb2e6d09722762647d6f455c111f05b59f35730eeb24332a
   tty-cursor (0.7.1) sha256=79534185e6a777888d88628b14b6a1fdf5154a603f285f80b1753e1908e0bf48
+  tty-font (0.5.0) sha256=495ee588701be4abaf03da8b14382794003cb2d836127b02c78cda18aaf451e2
   tty-progressbar (0.18.3) sha256=6cbb4260e55e74a9180d502143eb6a467d2c8e51bf5f3c9509fb5cacc3d4a5f6
   tty-prompt (0.23.1) sha256=fcdbce905238993f27eecfdf67597a636bc839d92192f6a0eef22b8166449ec8
   tty-reader (0.9.0) sha256=c62972c985c0b1566f0e56743b6a7882f979d3dc32ff491ed490a076f899c2b1

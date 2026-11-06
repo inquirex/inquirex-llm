@@ -74,7 +74,8 @@ definition = Inquirex.define id: "tax-intake-2026", version: "1.0.0" do
            entity_type:       :string,
            employee_count:    :integer,
            estimated_revenue: :currency
-    use_first_available_model "deepseek/deepseek-v4.1-flash", "anthropic/claude-haiku-5.5"
+    use_first_available_model "deepseek/deepseek-v4.1-flash", 
+                              "anthropic/claude-haiku-5.5"
     temperature 0.2
     transition to: :done
   end
@@ -110,7 +111,8 @@ extract :business_extracted do
   from :business_description
   prompt "Extract structured business information."
   schema industry: :string, employee_count: :integer, revenue: :currency
-  use_first_available_model "deepseek/deepseek-v4.1-flash", "anthropic/claude-haiku-5.5"
+  use_first_available_model "deepseek/deepseek-v4.1-flash", 
+                            "anthropic/claude-haiku-5.5"
   temperature 0.2
   max_tokens 1024
   transition to: :next_step
@@ -130,7 +132,8 @@ Inquirex.define id: "depreciation-help" do
 
   summarize :wrap_up do
     temperature 0.4
-    use_first_available_model "anthropic/claude-sonnet-5.5", "anthropic/claude-haiku-5.5"
+    use_first_available_model "anthropic/claude-sonnet-5.5", 
+                              "anthropic/claude-haiku-5.5"
   end
 end
 ```
@@ -227,20 +230,20 @@ Write the prompt by hand when you need domain framing the questions don't carry 
 
 ## DSL Methods (inside LLM verb blocks)
 
-| Method                                          | Purpose                                                                                                                 | Required                                                   |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `prompt "..."` / `prompt :auto`                 | LLM prompt template, or generated from question refs                                                                    | `extract`; **rejected** on `summarize`                     |
-| `schema :question_id, ...`                      | Fields resolved from questions (types + options)                                                                        | `extract` (this or keywords); **rejected** on `summarize`  |
-| `schema key: :type, ...`                        | Explicit field => type pairs                                                                                            | `extract` (this or refs); **rejected** on `summarize`      |
-| `from :step_id`                                 | Source step(s) whose answers feed the LLM                                                                               | `extract` (or use `from_all`); **rejected** on `summarize` |
-| `from_all`                                      | Pass all collected answers to the LLM                                                                                   | Alternative to `from`; **rejected** on `summarize`         |
-| `model :claude_sonnet`                          | Optional model hint for the adapter                                                                                     | No                                                         |
+| Method                                          | Purpose                                                      | Required                                                   |
+| ----------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------- |
+| `prompt "..."` / `prompt :auto`                 | LLM prompt template, or generated from question refs         | `extract`; **rejected** on `summarize`                     |
+| `schema :question_id, ...`                      | Fields resolved from questions (types + options)             | `extract` (this or keywords); **rejected** on `summarize`  |
+| `schema key: :type, ...`                        | Explicit field => type pairs                                 | `extract` (this or refs); **rejected** on `summarize`      |
+| `from :step_id`                                 | Source step(s) whose answers feed the LLM                    | `extract` (or use `from_all`); **rejected** on `summarize` |
+| `from_all`                                      | Pass all collected answers to the LLM                        | Alternative to `from`; **rejected** on `summarize`         |
+| `model :claude_sonnet`                          | ~~Optional model hint for the adapter~~                      | No, Deprecated                                             |
 | `use_first_available_model "vendor/model", ...` | Models this step prefers, best first; the first one a usable vendor serves is used. Overrides `model`. Server-side only | No                                                         |
-| `temperature 0.3`                               | Optional sampling temperature                                                                                           | No                                                         |
-| `max_tokens 1024`                               | Optional max output tokens                                                                                              | No                                                         |
-| `fallback { \|answers\| ... }`                  | Server-side fallback (stripped from JSON)                                                                               | No                                                         |
-| `transition to: :step`                          | Conditional transition (same as core)                                                                                   | No; **rejected** on `summarize`                            |
-| `skip_if rule`                                  | Skip step when condition is true                                                                                        | No                                                         |
+| `temperature 0.3`                               | Optional sampling temperature                                | No                                                         |
+| `max_tokens 1024`                               | Optional max output tokens                                   | No                                                         |
+| `fallback { \|answers\| ... }`                  | Server-side fallback (stripped from JSON)                    | No                                                         |
+| `transition to: :step`                          | Conditional transition (same as core)                        | No; **rejected** on `summarize`                            |
+| `skip_if rule`                                  | Skip step when condition is true                             | No                                                         |
 
 `summarize` rejects the content-shaping methods rather than ignoring them — see [`summarize`](#summarize) for each refusal and its reason.
 
@@ -286,7 +289,8 @@ Models are always named the OpenRouter way, `"vendor/model"`: `"openai/gpt-4.1-m
 ```ruby
 Inquirex::LLM.configure do |c|
   c.llm_vendors_priority        = %i[openrouter openai anthropic typesafe]
-  c.llm_models_priority         = %w[deepseek/deepseek-v4.1-flash anthropic/claude-haiku-5.5]
+  c.llm_models_priority         = %w[deepseek/deepseek-v4.1-flash 
+                                     anthropic/claude-haiku-5.5]
   c.dsl_can_reprioritize        = true # default: a step's own order wins
   c.dsl_can_use_unlisted_models = true # default: a step may name models not listed above
 end.ensure_provider_models!
@@ -308,7 +312,8 @@ extract :facts do
   from :situation
   prompt "Extract the filing details."
   schema filing_status: :string, dependents: :integer
-  use_first_available_model "deepseek/deepseek-v4.1-flash", "anthropic/claude-haiku-5.5"
+  use_first_available_model "deepseek/deepseek-v4.1-flash", 
+                            "anthropic/claude-haiku-5.5"
 end
 ```
 
@@ -457,7 +462,7 @@ definition = Inquirex.define id: "tax-intake" do
            dependents:    :integer,
            income_types:  :multi_enum,
            state_filing:  :string
-    model :claude_sonnet
+    
     transition to: :filing_status
   end
 
@@ -491,7 +496,69 @@ engine.prefill!(result)       # splats into top-level answers
 # whichever field the LLM couldn't fill in.
 ```
 
-`Engine#prefill!` is non-destructive (won't clobber an answer the user already gave), ignores `nil`/empty values so they don't spuriously trigger `not_empty`, and auto-advances past any step whose `skip_if` now evaluates true. See [examples/09_tax_preparer_llm.rb](../inquirex-tty/examples/09_tax_preparer_llm.rb) for a complete runnable flow, or the repo-level `demo_llm_intake.rb` for a scripted end-to-end walkthrough.
+`Engine#prefill!` is non-destructive (won't clobber an answer the user already gave), ignores `nil`/empty values so they don't spuriously trigger `not_empty`, and auto-advances past any step whose `skip_if` now evaluates true. See [examples](./examples) folder for a couple of complete runnable flows, or the repo-level `demo_llm_intake.rb` for a scripted end-to-end walkthrough.
+
+### Running Examples
+
+>  [!NOTE]
+>
+> To get the full benefit from these examples, we recommend that you set in your environment all of the following variables:
+>
+> - `OPENAI_API_KEY`
+> - `OPENROUTER_API_KEY`
+> - `ANTHROPIC_API_KEY`
+
+Then you can run the two examples via `bundle exec` (so make sure to run `bundle install` first)
+
+```bash
+$ bundle exec examples/llm-intake.rb       
+
+========================================================================
+  INQUIREX + LLM DEMO — Tax Intake
+  Powered by: OpenAI GPT
+========================================================================
+
+Step 1 — Tell us about your tax situation in a few sentences.
+------------------------------------------------------------------------
+
+> I'm married filing jointly, we have two kids. I work at Google on a W-2 but my wife runs a consulting LLC and she also has a rental property in Oakland. We have a Coinbase account with some crypto trades. We live in California.
+
+# and so on.... we don't want to spoil the surprise. 
+```
+
+But a much more interesting way to run this example is with the `--interactive` flag:
+
+Here is one extreme example where the form punishes the silly or the joker:
+
+```bash
+$ be examples/llm-intake.rb --interactive                                           
+
+========================================================================
+  INQUIREX + LLM DEMO — Tax Intake
+  Powered by: OpenAI GPT
+========================================================================
+
+Step 1 — Tell us about your tax situation in a few sentences.
+------------------------------------------------------------------------
+
+> I have no clue. Never done taxes.
+
+# ..... Try it! :) 
+```
+
+The above script is a self contained Ruby executable. You might not even need `bundle exec` to run it.
+
+The second example is a deliberate pure DSL example that you must run via some sort of renderer. 
+
+If you ran `bundle install` in this repo, you can then run the following command:
+
+```bash
+bundle exec inquirex-tty run examples/tax-preparation-estimator.rb
+```
+
+What's happening here? The gem `inquirex-tty` is not a formal dependency for `inquirex-llm`, so it's not declared in the `gemspec`. It's only declared in the `Gemfile`, which isn't even distributed with the gem file.
+
+That gem provides the terminal commands and the interface to interprete the DSL in that example file. We recommend that you play around with this, and report any issues to the Github Issues board.
 
 ## JSON Serialization
 
@@ -514,7 +581,8 @@ LLM steps serialize with `"requires_server": true` so the JS widget knows to rou
       }
     },
     "from_steps": ["business_description"],
-    "model": "claude_sonnet",
+    "use_first_available_model": ["deepseek/deepseek-v4.1-flash",
+                                   "anthropic/claude-haiku-5.5"],
     "temperature": 0.2,
     "max_tokens": 1024
   }
