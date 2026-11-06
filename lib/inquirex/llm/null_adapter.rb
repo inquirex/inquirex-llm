@@ -37,7 +37,7 @@ module Inquirex
       # @param node [LLM::Node]
       # @param _answers [Hash] ignored
       # @return [Hash, String]
-      def call(node, _answers = {})
+      def call(node, _answers = {}, model: nil) # rubocop:disable Lint/UnusedMethodArgument
         if node.schema
           node.schema.fields.each_with_object({}) do |(name, type), acc|
             acc[name] = placeholder_for(node.schema, name, type)
@@ -55,7 +55,7 @@ module Inquirex
       # @param transcript [String] the session transcript
       # @param _answers [Hash] ignored
       # @return [String] markdown
-      def summarize(node, transcript, _answers = {})
+      def summarize(node, transcript, _answers = {}, model: nil) # rubocop:disable Lint/UnusedMethodArgument
         <<~MARKDOWN.strip
           This is a placeholder summary for #{node.id}. No language model was called.
 

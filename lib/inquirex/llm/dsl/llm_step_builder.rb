@@ -35,6 +35,7 @@ module Inquirex
           @from_steps = []
           @from_all = false
           @model = nil
+          @models = []
           @temperature = nil
           @max_tokens = nil
           @fallback = nil
@@ -96,6 +97,19 @@ module Inquirex
         # @param name [Symbol] e.g. :claude_sonnet, :claude_haiku
         def model(name)
           @model = name.to_sym
+        end
+
+        # The models this step prefers, best first, as OpenRouter-style
+        # "vendor/model" names. The first one a usable vendor serves is used
+        # (see {LLM.route}); it overrides {#model}. The list never reaches
+        # the wire format: the server reads it from the definition it loaded.
+        #
+        # @example
+        #   use_first_available_model "deepseek/deepseek-v4.1-flash", "anthropic/claude-haiku-5.5"
+        #
+        # @param names [Array<String, Symbol, Array>] one or more "vendor/model" names, or one array
+        def use_first_available_model(*names)
+          @models.concat(names.flatten.map(&:to_s))
         end
 
         # Optional sampling temperature.
@@ -164,6 +178,7 @@ module Inquirex
         #   reference does not resolve to an ask/confirm question
         def build(id, nodes: nil)
           validate!(id)
+          validate_models!(id)
 
           field_map = resolve_schema_refs(id, nodes).merge(@schema_fields)
           schema_obj = field_map.empty? ? nil : Schema.new(**field_map)
@@ -177,6 +192,7 @@ module Inquirex
             from_steps:  @from_steps,
             from_all:    @from_all,
             model:       @model,
+            models:      @models.uniq,
             temperature: @temperature,
             max_tokens:  @max_tokens,
             fallback:    @fallback,
@@ -281,6 +297,40 @@ module Inquirex
           spec = { type: node.type }
           spec[:values] = node.options if %i[enum multi_enum].include?(node.type) && node.options
           spec
+        end
+
+        # `use_first_available_model` entries must be "vendor/model"; with
+        # dsl_can_use_unlisted_models off, also in llm_models_priority.
+        # Declaring `model` as well is legal but pointless, so it warns.
+        def validate_models!(id)
+          return if @models.empty?
+
+          bad = @models.reject { |name| Routing::ModelId.valid?(name) }
+          unless bad.empty?
+            raise Errors::DefinitionError,
+              "LLM step #{id.inspect} use_first_available_model needs \"vendor/model\" names " \
+              "(e.g. \"anthropic/claude-haiku-5.5\"), got #{bad.map(&:inspect).join(", ")}"
+          end
+
+          config = LLM.configuration
+          unless config.dsl_can_use_unlisted_models
+            unlisted = @models - config.llm_models_priority
+            unless unlisted.empty?
+              raise Errors::DefinitionError,
+                "LLM step #{id.inspect} names #{unlisted.join(", ")}, which llm_models_priority does not list, " \
+                "and dsl_can_use_unlisted_models is false"
+            end
+          end
+
+          if config.routing_ready? && @models.none? { config.router.registry.route_for(it, verb: @verb) }
+            warn "[inquirex-llm] LLM step #{id.inspect}: no usable vendor serves #{@models.join(", ")}; " \
+                 "its calls will fall back to llm_models_priority"
+          end
+
+          return unless @model
+
+          warn "[inquirex-llm] LLM step #{id.inspect} declares both `model` and `use_first_available_model`; " \
+               "`model #{@model.inspect}` is ignored"
         end
 
         def validate!(id)

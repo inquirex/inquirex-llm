@@ -85,9 +85,10 @@ module Inquirex
       #
       # @param node [Inquirex::LLM::Node] the current extract step
       # @param answers [Hash] all collected answers so far
+      # @param model [String, nil] Jev model to use instead of the configured one (set by routing)
       # @return [Extraction] usage is { input_tokens:, output_tokens: }
       # @raise [Errors::AdapterError] on API failures, or a field Jev cannot answer
-      def call(node, answers = {})
+      def call(node, answers = {}, model: nil)
         raise Errors::AdapterError, "#{node.id.inspect} has no schema; Jev can only answer a schema" unless node.schema
 
         unsupported = self.class.unsupported_fields(node.schema)
@@ -101,7 +102,7 @@ module Inquirex
         readers = node.schema.field_specs.to_h do |field, spec|
           [field, ask(questions, node, field, spec, source.values.join("\n"))]
         end
-        result = post(state: { "answers" => source }, questions: questions)
+        result = post(state: { "answers" => source }, questions: questions, model: model || self.model)
 
         confidence = {}
         values = readers.to_h { |field, reader| [field, reader.call(result.fetch("answers"), confidence)] }
@@ -113,7 +114,7 @@ module Inquirex
       # Jev cannot write prose.
       #
       # @raise [Errors::AdapterError] always
-      def summarize(node, _transcript, _answers = {})
+      def summarize(node, _transcript, _answers = {}, model: nil) # rubocop:disable Lint/UnusedMethodArgument
         raise Errors::AdapterError, "Jev cannot summarize (#{node.id.inspect}): route summarize to a text model"
       end
 
@@ -210,10 +211,10 @@ module Inquirex
 
       # @return [Hash] the parsed response
       # @raise [Errors::AdapterError] on a non-2xx after retries, or a body that is not JSON
-      def post(state:, questions:)
+      def post(state:, questions:, model: self.model)
         attempt = 0
         loop do
-          response = request(JSON.generate("state" => state, "questions" => questions, "model" => model))
+          response = request(JSON.generate("state" => state, "questions" => questions, "model" => model), model)
           return JSON.parse(response.body) if response.is_a?(Net::HTTPSuccess)
 
           if RETRY_STATUSES.include?(response.code) && attempt < MAX_RETRIES
@@ -227,7 +228,7 @@ module Inquirex
         raise Errors::AdapterError, "TypeSafe returned a body that is not JSON: #{e.message}"
       end
 
-      def request(body)
+      def request(body, model = self.model)
         uri = URI(API_URL)
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = true

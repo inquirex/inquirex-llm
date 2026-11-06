@@ -50,12 +50,13 @@ module Inquirex
 
       # @param node [Inquirex::LLM::Node] the current LLM step
       # @param answers [Hash] all collected answers so far
+      # @param model [String, nil] model id to use instead of the node's hint (set by routing)
       # @return [Extraction] the schema-shaped values, with the model's raw JSON and the usage
       # @raise [Errors::AdapterError] on API / parse failures
       # @raise [Errors::SchemaViolationError] when the LLM output misses schema fields
-      def call(node, answers = {})
+      def call(node, answers = {}, model: nil)
         source      = source_answers(node, answers)
-        model       = resolve_model(node)
+        model     ||= resolve_model(node)
         temperature = node.respond_to?(:temperature) ? (node.temperature || config.temperature) : config.temperature
         max_tokens  = node.respond_to?(:max_tokens)  ? (node.max_tokens  || config.max_tokens) : config.max_tokens
 
@@ -83,11 +84,12 @@ module Inquirex
       # @param node [Inquirex::LLM::Node] the summarize step
       # @param transcript [String] the session transcript
       # @param answers [Hash] unused; accepted for interface symmetry
+      # @param model [String, nil] model id to use instead of the node's hint (set by routing)
       # @return [String] markdown summary
       # @raise [Errors::AdapterError] on API / parse failures
-      def summarize(node, transcript, _answers = {})
+      def summarize(node, transcript, _answers = {}, model: nil)
         response = call_api(
-          model:       resolve_model(node),
+          model:       model || resolve_model(node),
           system:      Prompts::SUMMARIZE,
           user:        summary_input(transcript),
           temperature: node.respond_to?(:temperature) ? (node.temperature || config.summary_temperature) : config.summary_temperature,

@@ -24,6 +24,8 @@ module Inquirex
     # @attr_reader from_steps [Array<Symbol>] source step ids whose answers feed the LLM
     # @attr_reader from_all [Boolean] whether to pass all collected answers to the LLM
     # @attr_reader model [Symbol, nil] optional model hint (e.g. :claude_sonnet)
+    # @attr_reader models [Array<String>] "vendor/model" names from `use_first_available_model`,
+    #   by preference; server-side only, never serialized (see docs/decisions/prioritized-model-selection.md)
     # @attr_reader temperature [Float, nil] optional sampling temperature
     # @attr_reader max_tokens [Integer, nil] optional max output tokens
     # @attr_reader fallback [Proc, nil] server-side fallback (stripped from JSON)
@@ -40,17 +42,19 @@ module Inquirex
         :from_steps,
         :from_all,
         :model,
+        :models,
         :temperature,
         :max_tokens,
         :fallback
 
       def initialize(prompt:, schema: nil, from_steps: [], from_all: false,
-        model: nil, temperature: nil, max_tokens: nil, fallback: nil, **)
+        model: nil, models: [], temperature: nil, max_tokens: nil, fallback: nil, **)
         @prompt = prompt
         @schema = schema
         @from_steps = Array(from_steps).map(&:to_sym).freeze
         @from_all = !!from_all
         @model = model&.to_sym
+        @models = Array(models).map(&:to_s).freeze
         @temperature = temperature&.to_f
         @max_tokens = max_tokens&.to_i
         @fallback = fallback

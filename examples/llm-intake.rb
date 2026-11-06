@@ -149,21 +149,11 @@ definition = Inquirex.define id: "tax-intake-llm-demo", version: "1.0.0" do
     transition to: :summary
   end
 
+  # Closes the flow with a prose recap of the session transcript. The gem owns
+  # its prompt, so it takes no prompt, schema, from or transition, and it must
+  # be the last step declared.
   summarize :summary do
-    from_all
-    prompt <<~PROMPT
-      Based on all collected answers, return a JSON object:
-        complexity:         "simple" | "moderate" | "complex"
-        fee_estimate_low:   integer USD
-        fee_estimate_high:  integer USD
-        red_flags:          array of short strings (empty array if none)
-        notes:              one-sentence summary for the preparer
-    PROMPT
-    transition to: :done
-  end
-
-  say :done do
-    text "Thank you! A tax professional will review your intake and reach out."
+    temperature 0.4
   end
 end
 
@@ -280,9 +270,8 @@ if summary_node && !adapter.is_a?(Inquirex::LLM::NullAdapter)
   puts sep
   puts "🧠  Asking #{adapter_label} for an intake summary…"
   puts sep
-  summary = adapter.call(summary_node, engine.answers)
   puts
-  puts JSON.pretty_generate(summary)
+  puts adapter.summarize(summary_node, engine.text(:transcript))
 end
 
 puts

@@ -20,11 +20,23 @@ module Inquirex
     # typo in INQUIREX_LLM_ADAPTER fails loudly instead of silently falling
     # through to auto-detection.
     #
-    # @example
+    # Model routing ({Routing}) is configured with four more attributes that
+    # have no environment variables: {#llm_vendors_priority},
+    # {#llm_models_priority}, {#dsl_can_reprioritize} and
+    # {#dsl_can_use_unlisted_models}. Setting {#llm_vendors_priority} turns
+    # routing on; until then the deprecated single-provider settings apply.
+    #
+    # @example Routing (0.13.0+)
+    #   Inquirex::LLM.configure do |c|
+    #     c.llm_vendors_priority = %i[openrouter anthropic]
+    #     c.llm_models_priority  = %w[deepseek/deepseek-v4.1-flash anthropic/claude-haiku-5.5]
+    #     c.max_tokens           = 4096
+    #   end.ensure_provider_models!
+    #
+    # @example Single provider (deprecated)
     #   Inquirex::LLM.configure do |c|
     #     c.provider        = :anthropic
     #     c.anthropic_model = "claude-opus-5-5"
-    #     c.max_tokens      = 4096
     #   end
     class Configuration
       # The providers {LLM.adapter} can build. nil means auto-detect.
@@ -78,12 +90,83 @@ module Inquirex
         end
       end
 
+      # @return [Array<Symbol>, nil] vendors to route through, by priority; nil leaves routing off
+      attr_reader :llm_vendors_priority
+      # @return [Array<String>] "vendor/model" names, by priority: what a step without its own list uses
+      attr_reader :llm_models_priority
+      # @return [Boolean] whether a step's own model order beats llm_models_priority (default true)
+      attr_accessor :dsl_can_reprioritize
+      # @return [Boolean] whether a step may name models absent from llm_models_priority (default true)
+      attr_accessor :dsl_can_use_unlisted_models
+
       # @param env [#[]] the environment to read; ENV unless a spec says otherwise
       # @raise [Errors::ConfigurationError] when a variable holds an invalid value
       def initialize(env = ENV)
         SETTINGS.each do |name, setting|
           instance_variable_set(:"@#{name}", resolve(name, env[setting.env], setting.env))
         end
+        @llm_vendors_priority = nil
+        @llm_models_priority = []
+        @dsl_can_reprioritize = true
+        @dsl_can_use_unlisted_models = true
+        @routing_lock = Mutex.new
+      end
+
+      # @param vendors [Array<Symbol, String>, nil] from {Routing::VENDORS}; nil turns routing off
+      # @raise [Errors::ConfigurationError] on an unknown vendor
+      def llm_vendors_priority=(vendors)
+        @router = nil
+        if vendors.nil?
+          @llm_vendors_priority = nil
+          return
+        end
+
+        list = Array(vendors).map { |vendor| vendor.to_s.strip.downcase.to_sym }.uniq
+        unknown = list - Routing::VENDORS
+        invalid!("Inquirex::LLM.configuration.llm_vendors_priority", unknown, "a list of #{Routing::VENDORS.join(", ")}") if unknown.any?
+        @llm_vendors_priority = list.freeze
+      end
+
+      # @param models [Array<String, Symbol>] "vendor/model" names
+      # @raise [Errors::ConfigurationError] on a name that is not "vendor/model"
+      def llm_models_priority=(models)
+        @router = nil
+        list = Array(models).map(&:to_s).uniq
+        bad = list.reject { |model| Routing::ModelId.valid?(model) }
+        invalid!("Inquirex::LLM.configuration.llm_models_priority", bad, "a list of \"vendor/model\" names") if bad.any?
+        @llm_models_priority = list.freeze
+      end
+
+      # @return [Boolean] whether per-step model routing is on
+      def routing? = !@llm_vendors_priority.nil?
+
+      # Settles which vendors and models this process can use: drops each
+      # vendor without an API key or a reachable model catalog, then each
+      # model no remaining vendor serves, warning on stderr for each. Runs
+      # once; a later call is a no-op until the routing settings change.
+      #
+      # @param catalog [#fetch] downloads a provider's model ids (a spec passes a fake)
+      # @param console [Routing::Console]
+      # @return [self]
+      # @raise [Errors::ConfigurationError] when llm_vendors_priority is not set
+      # @raise [Errors::MissingProviderAPIKeysError] when no vendor is usable
+      # @raise [Errors::NoAvailableModelsError] when no model is servable
+      def ensure_provider_models!(catalog: Routing::Catalog.new, console: Routing::Console.new)
+        raise Errors::ConfigurationError, "set llm_vendors_priority before ensure_provider_models!" unless routing?
+
+        @routing_lock.synchronize do
+          @router ||= Routing::Router.new(self, Routing::Registry.new(self, catalog:, console:).ensure!, console:)
+        end
+        self
+      end
+
+      # @return [Boolean] whether {#ensure_provider_models!} has already settled the vendors
+      def routing_ready? = !@router.nil?
+
+      # @return [Routing::Router] the router, running {#ensure_provider_models!} first if nothing has
+      def router
+        ensure_provider_models! unless @router
+        @router
       end
 
       # @return [Boolean] whether debug logging is on
