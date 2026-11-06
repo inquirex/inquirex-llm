@@ -1,22 +1,50 @@
 [![Gem Version](https://badge.fury.io/rb/inquirex-llm.svg)](https://badge.fury.io/rb/inquirex-llm) [![Ruby](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml/badge.svg)](https://github.com/inquirex/inquirex-llm/actions/workflows/main.yml) ![Coverage](docs/badges/coverage_badge.svg)
 
-# inquirex-llm
+> [!CAUTION]
+> 
+> If you have not read the README for the [inquirex](https://github.com/inquirex/inquirex) Ruby gem, which constitutes the basis for this gem and a few others, please stop reading here, and head over there and read the README, or have Claude or your favorite model summarize it for you, but beware that **this README** assumes **full understanding of what `inquirex` does**, how it works, and what it's for.
 
-LLM integration verbs for the [Inquirex](https://github.com/inquirex/inquirex) questionnaire engine.
+---
 
-Extends the core DSL with two server-side verbs: `extract` (alias: `clarify`), which turns free-text answers into structured data, and `summarize`, which closes a flow with a prose summary of the whole session. Ships with a pluggable adapter interface and a `NullAdapter` for testing. (`describe` and `detour` are temporarily parked.)
+# `inquirex-llm` — "Making Forms... Less Clueless Since 2026 😂"
 
-`inquirex` is a pure Ruby, declarative, rules-driven questionnaire engine for building conditional intake forms, qualification wizards, and branching surveys.
+This Ruby gem is meant to be used with its parent `inquirex` gem. It enriches `inquirex` 's DSL with additional keywords you can use in your form descriptions. 
+
+> [!NOTE]
+> 
+> If you use inquirex to show the forms inside a web copilot, similar to how they are done on the site [Qualified.At](https://qualified.at) and especially on their [ten separate demos](https://qualified.at/demos) — which is, they generate a floating Copilot with form questions as widgets inside entirely via JavaScript package [inquirex-widget](https://www.npmjs.com/package/inquirex-widget) and run the user through the questions without any round-trips to the server, as the entire DSL is passed at once in the beginning as JSON; and so until the user (a lead) finishes the form, there are no server trips necessary.  
+> 
+> However, for the keywords added by this gem to work, they must be sent to some sort of backend API server, because pure client-side calling of LLM APIs would expose the API key. 
+> 
+> When used within the context of a Terminal GUI (ie., [`inquirex-tty`](https://github.com/inquirex/inquirex-tty), the form is rendered and run through by the same Ruby VM process, and therefore you just need your API keys set in your environment. 
+> 
+> And if you ever want to encrypt your development keys and commit them with your repo, there is no tool like [**sopsy**](https://sopsy-cli.dev), GitHub: <https://github.com/kigster/sopsy>. Sopsy is a Rust-based encryption tool that stores private keys inside your MacBook's secure enclave chip, or on a YubiKey. 
+
+---
+
+## The New Keywords
+
+This gem extends the core DSL with two server-side verbs: 
+
+* `extract` (alias: `clarify`), which turns free-text answers into structured data, and 
+
+* `summarize`, which closes a flow with a prose summary of the whole session. 
+
+Ships with a pluggable adapter interface and a `NullAdapter` for testing.
 
 > [!IMPORTANT]
-> Note that `inquirex-llm` is part of an entire ecosystem that contains:
 >
-> - [`inquirex`](https://github.com/inquirex/inquirex)
-> - [`inquirex-llm`](https://github.com/inquirex/inquirex-llm)
-> - [`inquirex-tty`](https://github.com/inquirex/inquirex-tty)
-> - [`inquirex-widget`](https://github.com/inquirex/inquirex-widget) (`npmjs` module [`inquirex-widget`](https://www.npmjs.com/package/inquirex-widget), formerly `@kigster/inquirex-js`)
+> As we mentioned above, `inquirex-llm` is part of an entire ecosystem that comprises:
 >
-> For a presentation about these gems and what they do please watch the [RubySF presentation](https://www.youtube.com/watch?v=iaoKW7Ap3_M&t=1s) and you can also [view the slides from the presentation](https://reinvent.one/images/talks/pdfs/2026.inquirex.pdf).
+> - [`inquirex`](https://github.com/inquirex/inquirex) — the base gem that defines the core DSL and validation rules.
+> - [`inquirex-llm`](https://github.com/inquirex/inquirex-llm) — this gem extends it with AI-enabled features
+> - [`inquirex-tty`](https://github.com/inquirex/inquirex-tty) — a TUI user interface gem that converts the form DSLs into a proper terminal screen wizard/questionaire, and could be combined with the LLM gem to offer AI-enabled form features.
+>
+> In addition to the Ruby Gems, there is an NPM JavaScript module that also converts DSLs into a Copilot-style questionnaire for use in a web application.  
+>
+> - [`inquirex-widget`](https://github.com/inquirex/inquirex-widget), and it's npmjs module [`inquirex-widget`](https://www.npmjs.com/package/inquirex-widget)
+>
+> For a presentation about these gems and what they collectively do, please check out the [Slides from the RubySF presentation](https://kig.re/speaking/2026.inquirex) (or the [video](https://www.youtube.com/watch?v=iaoKW7Ap3_M&t=1s) if you prefer.
 >
 > Finally, the SaaS application [qualified.at](https://qualified.at) allows users to leverage the ecosystem by creating their own custom lead intake flows and integrating them on their own sites.
 
@@ -46,7 +74,7 @@ definition = Inquirex.define id: "tax-intake-2026", version: "1.0.0" do
            entity_type:       :string,
            employee_count:    :integer,
            estimated_revenue: :currency
-    model :claude_sonnet
+    use_first_available_model "deepseek/deepseek-v4.1-flash", "anthropic/claude-haiku-5.5"
     temperature 0.2
     transition to: :done
   end
@@ -61,7 +89,7 @@ All core verbs (`ask`, `say`, `header`, `btw`, `warning`, `confirm`) and widget 
 
 ### Loading stored flows
 
-Since inquirex 0.7.0, `Inquirex.load_dsl` validates source against a **default-deny** allowlist before evaluating it — a word nobody declared is a violation, not an oversight. Requiring this gem registers its own vocabulary (`extract`, `clarify`, `summarize`, and the methods legal inside their blocks), so a flow stored in a database or authored in a visual builder loads normally:
+Since Inquirex 0.7.0, `Inquirex.load_dsl` validates source against a **default-deny** allowlist before evaluating it — a word nobody declared is a violation, not an oversight. Requiring this gem registers its own vocabulary (`extract`, `clarify`, `summarize`, and the methods legal inside their blocks), so a flow stored in a database or authored in a visual builder loads normally:
 
 ```ruby
 Inquirex.load_dsl(customer.flow_dsl)   # validates, then evaluates
@@ -69,7 +97,7 @@ Inquirex.load_dsl(customer.flow_dsl)   # validates, then evaluates
 
 `fallback` is the one deliberate exception: it takes a Ruby block, which is exactly what static validation cannot vet, so it is excluded from the allowlist rather than permitted. Flows that need it must be loaded from your own source with `unsafe: true`.
 
-Registration is skipped on inquirex versions predating the allowlist, so the gem still works against them.
+Registration is skipped on Inquirex versions predating the allowlist, so the gem still works against them.
 
 ## Currently Supported LLM Verbs
 
@@ -82,7 +110,7 @@ extract :business_extracted do
   from :business_description
   prompt "Extract structured business information."
   schema industry: :string, employee_count: :integer, revenue: :currency
-  model :claude_sonnet
+  use_first_available_model "deepseek/deepseek-v4.1-flash", "anthropic/claude-haiku-5.5"
   temperature 0.2
   max_tokens 1024
   transition to: :next_step
@@ -102,6 +130,7 @@ Inquirex.define id: "depreciation-help" do
 
   summarize :wrap_up do
     temperature 0.4
+    use_first_available_model "anthropic/claude-sonnet-5.5", "anthropic/claude-haiku-5.5"
   end
 end
 ```
@@ -126,7 +155,12 @@ The prompt constrains the model to what the transcript establishes, and to the m
 
 Each raises `Errors::DefinitionError` naming the reason.
 
-`temperature`, `model`, and `max_tokens` remain available: they change how the summary is generated, not what it is allowed to say.
+- `temperature(float between 0..1)`
+- `model(symbol)` (deprecated, but still works until 1.0.0)
+- `use_first_available_model(array of strings)` is the replacement for `model` allowing the choice of a model best suited for a specific question or a task.
+- `max_tokens(integer)` 
+
+These parameters change how the summary is generated, not what it can say.
 
 #### Calling it
 
@@ -240,6 +274,10 @@ result = adapter.call(engine.current_step)
 ```
 
 ## Model routing (0.13.0+)
+
+> [!NOTE]
+>
+> For a fun read on how this feature came to be, please read the blog post [Home-made Evals Taste Better](https://kig.re/2026/11/02/llm-evals-is-a-ruby-gem-for-testing-probabilistic-assumptions-in-your-AI-datasets.html)
 
 Different steps want different models: an eval run (see [Evals](#evals)) may show that DeepSeek wins one dataset and Claude Haiku another. Routing lets the host list the vendors and models it prefers once, and lets each LLM step name its own ordered list. The full reasoning is in [docs/decisions/prioritized-model-selection.md](docs/decisions/prioritized-model-selection.md).
 
