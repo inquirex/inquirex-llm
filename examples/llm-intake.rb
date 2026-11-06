@@ -11,8 +11,8 @@
 #    The engine only asks the questions that are still unanswered."
 #
 # Usage:
-#   ruby demo_llm_intake.rb               # scripted sample input
-#   ruby demo_llm_intake.rb --interactive # type your own description
+#   bundle exec examples/llm-intake.rb               # scripted sample input
+#   bundle exec examples/llm-intake --interactive    # type your own description
 #
 # Requires:
 #   OPENAI_API_KEY (preferred) or ANTHROPIC_API_KEY in .env or environment
@@ -102,8 +102,8 @@ definition = Inquirex.define id: "tax-intake-llm-demo", version: "1.0.0" do
       dependents:    :integer,
       income_types:  :multi_enum,
       state_filing:  :string
-    model :claude_sonnet
-    temperature 0.0
+    model :claude_haiku
+    temperature 0.1
     transition to: :filing_status
   end
 
@@ -154,6 +154,7 @@ definition = Inquirex.define id: "tax-intake-llm-demo", version: "1.0.0" do
   # be the last step declared.
   summarize :summary do
     temperature 0.4
+    model :claude_haiku
   end
 end
 

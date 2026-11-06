@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# Example 8: Tax Preparer Intake (Realistic, Privacy-Safe)
 #
 # Real-world intake wizard used by tax preparers to estimate how long a
 # return will take and how much phone time the client will consume. Every

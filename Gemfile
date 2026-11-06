@@ -17,6 +17,8 @@ group :development, :test do
   gem "rubocop"
   gem "rubocop-rspec"
 
+  gem "inquirex-tty"
+
   gem "yard"
   gem "llm-evals", "~> 0.5.0"
   gem "ruby_llm", "= 2.1.1"
