@@ -12,7 +12,7 @@
 #
 # Usage:
 #   bundle exec examples/llm-intake.rb               # scripted sample input
-#   bundle exec examples/llm-intake --interactive    # type your own description
+#   bundle exec examples/llm-intake.rb --interactive    # type your own description
 #
 # Requires:
 #   OPENAI_API_KEY (preferred) or ANTHROPIC_API_KEY in .env or environment
